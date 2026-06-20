@@ -1,0 +1,155 @@
+"use client";
+
+import { AnimatePresence, motion } from "framer-motion";
+import { useState } from "react";
+import { useApp } from "@/lib/context";
+import { ViewId } from "@/lib/types";
+import { initials, userName } from "@/lib/utils";
+import { useIsMobile } from "@/lib/useIsMobile";
+
+const NAV_ITEMS: { view: ViewId; icon: string; label: string; adminOnly?: boolean }[] = [
+  { view: "dashboard", icon: "家", label: "ホーム" },
+  { view: "mail", icon: "封", label: "メール管理" },
+  { view: "schedule", icon: "予", label: "スケジュール管理" },
+  { view: "folder", icon: "個", label: "個人フォルダ" },
+  { view: "bulletin", icon: "掲", label: "社内掲示板" },
+  { view: "workflow", icon: "承", label: "ワークフロー" },
+  { view: "todo", icon: "済", label: "ToDo管理" },
+  { view: "messages", icon: "話", label: "メッセージ機能" },
+  { view: "address", icon: "名", label: "アドレス帳" },
+  { view: "files", icon: "書", label: "ファイル管理" },
+  { view: "facilities", icon: "室", label: "設備予約" },
+  { view: "timecard", icon: "勤", label: "タイムカード" },
+  { view: "admin", icon: "管", label: "組織・権限管理", adminOnly: true },
+  { view: "spaces", icon: "空", label: "スペース" },
+  { view: "knowledge", icon: "知", label: "ナレッジ" },
+  { view: "canvas", icon: "板", label: "ホワイトボード" },
+];
+
+const BOTTOM_TABS: ViewId[] = ["dashboard", "todo", "schedule", "bulletin", "messages"];
+
+export default function Sidebar() {
+  const { state, currentView, setView, theme, toggleTheme, sidebarCollapsed, toggleSidebar, currentUser, can } = useApp();
+  const isMobile = useIsMobile();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const me = userName(state, currentUser ?? state.currentUser);
+  const meUser = state.users.find((u) => u.id === (currentUser ?? state.currentUser));
+
+  const renderMenu = (collapsed: boolean, onSelect?: () => void) => (
+    <nav className="sidebar-nav">
+      {NAV_ITEMS.map((item) => {
+        const locked = item.adminOnly && !can("admin");
+        return (
+          <motion.button
+            key={item.view}
+            className={currentView === item.view ? "active" : ""}
+            disabled={locked}
+            title={collapsed ? item.label : undefined}
+            onClick={() => {
+              setView(item.view);
+              onSelect?.();
+            }}
+            whileHover={{ x: collapsed ? 0 : 2 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            <span>{item.icon}</span>
+            {!collapsed && <b>{item.label}</b>}
+            {!collapsed && locked && <small>管理者のみ</small>}
+          </motion.button>
+        );
+      })}
+    </nav>
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        <AnimatePresence>
+          {drawerOpen && (
+            <>
+              <motion.div className="drawer-overlay" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setDrawerOpen(false)} />
+              <motion.aside className="mobile-drawer" initial={{ x: -270 }} animate={{ x: 0 }} exit={{ x: -270 }} transition={{ duration: 0.22 }}>
+                <div className="sidebar-head">
+                  <strong>Office Workspace</strong>
+                  <div>
+                    <button className="icon-button" onClick={toggleTheme}>
+                      {theme === "dark" ? "明" : "暗"}
+                    </button>
+                    <button className="icon-button" onClick={() => setDrawerOpen(false)}>
+                      閉
+                    </button>
+                  </div>
+                </div>
+                <div className="sidebar-user">
+                  <span className="avatar">{initials(me)}</span>
+                  <div>
+                    <strong>{me}</strong>
+                    <small>{meUser?.dept}</small>
+                  </div>
+                </div>
+                {renderMenu(false, () => setDrawerOpen(false))}
+              </motion.aside>
+            </>
+          )}
+        </AnimatePresence>
+
+        <nav className="mobile-bottom-nav">
+          {NAV_ITEMS.filter((item) => BOTTOM_TABS.includes(item.view)).map((item) => (
+            <button key={item.view} className={currentView === item.view ? "active" : ""} onClick={() => setView(item.view)}>
+              <span>{item.icon}</span>
+              <b>{item.label.replace("管理", "")}</b>
+            </button>
+          ))}
+          <button onClick={() => setDrawerOpen(true)}>
+            <span>開</span>
+            <b>メニュー</b>
+          </button>
+        </nav>
+      </>
+    );
+  }
+
+  return (
+    <motion.aside className="sidebar" animate={{ width: sidebarCollapsed ? 58 : 246 }} transition={{ duration: 0.22 }}>
+      <div className="sidebar-head">
+        <AnimatePresence>
+          {!sidebarCollapsed && (
+            <motion.strong initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+              Office Workspace
+            </motion.strong>
+          )}
+        </AnimatePresence>
+        <div>
+          {!sidebarCollapsed && (
+            <button className="icon-button" onClick={toggleTheme}>
+              {theme === "dark" ? "明" : "暗"}
+            </button>
+          )}
+          <button className="icon-button" onClick={toggleSidebar}>
+            {sidebarCollapsed ? "開" : "閉"}
+          </button>
+        </div>
+      </div>
+
+      {!sidebarCollapsed && (
+        <button className="command-hint" onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true }))}>
+          <span>検</span>
+          <b>検索・コマンド</b>
+          <kbd>Ctrl K</kbd>
+        </button>
+      )}
+
+      {renderMenu(sidebarCollapsed)}
+
+      <div className="sidebar-user">
+        <span className="avatar">{initials(me)}</span>
+        {!sidebarCollapsed && (
+          <div>
+            <strong>{me}</strong>
+            <small>{meUser?.dept}</small>
+          </div>
+        )}
+      </div>
+    </motion.aside>
+  );
+}
