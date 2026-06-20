@@ -2,10 +2,12 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { AppProvider } from "@/lib/context";
 
+const basePath = process.env.GITHUB_ACTIONS === "true" ? "/office-workspace" : "";
+
 export const metadata: Metadata = {
   title: "Office Workspace",
   description: "社内業務をWebでまとめて運用するグループウェア",
-  manifest: "/manifest.json",
+  manifest: `${basePath}/manifest.json`,
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
