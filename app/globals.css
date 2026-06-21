@@ -436,6 +436,14 @@ input:focus, select:focus, textarea:focus {
   body { font-size: 14px; -webkit-text-size-adjust: 100%; }
   button, input, select, textarea { min-width: 0; }
   input, select, textarea { width: 100%; min-height: 44px; font-size: 16px; }
+  input[type="checkbox"], input[type="radio"] {
+    width: 18px;
+    min-width: 18px;
+    height: 18px;
+    min-height: 18px;
+    padding: 0;
+    flex: 0 0 auto;
+  }
   textarea { min-height: 88px; }
 
   .app-shell { display: block; }
@@ -562,6 +570,43 @@ input:focus, select:focus, textarea:focus {
     z-index: 4;
     background: var(--panel);
     box-shadow: 1px 0 0 var(--line);
+  }
+  .schedule-grid-panel > div > div:first-child > :first-child { padding: 8px 5px !important; }
+  .schedule-employee {
+    min-width: 0;
+    padding: 8px 5px !important;
+    display: grid;
+    place-items: center;
+    align-content: start;
+    text-align: center;
+  }
+  .schedule-employee strong { max-width: 100%; overflow-wrap: anywhere; font-size: 12px; line-height: 1.35; }
+  .schedule-employee-dept { display: none; }
+
+  .schedule-form-tabs {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    margin-bottom: 10px !important;
+    padding-bottom: 3px;
+    scrollbar-width: none;
+  }
+  .schedule-form-tabs .ghost-button {
+    flex: 0 0 auto;
+    min-height: 36px;
+    padding-inline: 9px;
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  .schedule-form { gap: 8px !important; }
+  .schedule-form label { min-width: 0; font-size: 12px; }
+  .schedule-form input, .schedule-form select { min-height: 38px; padding: 6px 8px; }
+  .schedule-form textarea { min-height: 66px; padding: 7px 8px; }
+  .schedule-form fieldset { padding: 8px !important; border-radius: 7px !important; }
+  .schedule-form fieldset > div { gap: 6px 10px !important; }
+  .schedule-form fieldset label { align-items: center; }
+  .modal-surface .schedule-date-grid,
+  .modal-surface .schedule-form [style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
   .schedule-view > .panel:has(> .panel-title + div[style*="repeat(7"]) { overflow-x: auto; }
   .schedule-view > .panel > div[style*="repeat(7"] { min-width: 700px; }

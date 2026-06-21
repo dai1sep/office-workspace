@@ -7,6 +7,7 @@ import Modal from "@/components/Modal";
 import { useApp } from "@/lib/context";
 import { TODAY } from "@/lib/store";
 import type { AppState, Schedule } from "@/lib/types";
+import { useIsMobile } from "@/lib/useIsMobile";
 import { uid, userName } from "@/lib/utils";
 
 type ViewMode = "groupDay" | "groupWeek" | "personalDay" | "personalWeek" | "personalMonth" | "personalYear";
@@ -86,6 +87,7 @@ function ScheduleCard({ schedule, state, onOpen }: { schedule: Schedule; state: 
 
 export default function ScheduleView() {
   const { state, updateState, currentUser } = useApp();
+  const isMobile = useIsMobile();
   const me = currentUser ?? state.currentUser;
   const [anchor, setAnchor] = useState(TODAY);
   const [mode, setMode] = useState<ViewMode>("groupWeek");
@@ -114,6 +116,9 @@ export default function ScheduleView() {
   const weekStart = startOfWeek(anchor);
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const displayDates = mode === "groupDay" || mode === "personalDay" ? [anchor] : weekDates;
+  const mobileNameWidth = Math.min(104, Math.max(64, visibleUsers.reduce((length, user) => Math.max(length, user.name.length), 2) * 16 + 24));
+  const nameColumn = isMobile ? `${mobileNameWidth}px` : "180px";
+  const scheduleTableWidth = isMobile ? mobileNameWidth + displayDates.length * 112 : mode === "groupWeek" ? 1040 : 520;
   const matchingSchedules = state.schedules.filter((schedule) => {
     const text = `${schedule.title} ${schedule.detail} ${schedule.location}`.toLowerCase();
     return !query || text.includes(query.toLowerCase());
@@ -221,12 +226,12 @@ export default function ScheduleView() {
 
       {mode.startsWith("group") && (
         <motion.section key={mode} className="panel schedule-grid-panel" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .2 }} style={{ overflowX: "auto", padding: 0 }}>
-          <div style={{ minWidth: mode === "groupWeek" ? 1040 : 520 }}>
-            <div style={{ display: "grid", gridTemplateColumns: `180px repeat(${displayDates.length}, minmax(120px, 1fr))`, position: fixedDates ? "sticky" : "static", top: 0, zIndex: 3, background: "var(--panel)", borderBottom: "1px solid var(--line)" }}>
+          <div style={{ minWidth: scheduleTableWidth }}>
+            <div style={{ display: "grid", gridTemplateColumns: `${nameColumn} repeat(${displayDates.length}, minmax(112px, 1fr))`, position: fixedDates ? "sticky" : "static", top: 0, zIndex: 3, background: "var(--panel)", borderBottom: "1px solid var(--line)" }}>
               <strong style={{ padding: 12 }}>社員</strong>{displayDates.map((iso) => <strong key={iso} style={{ padding: 12, textAlign: "center", borderLeft: "1px solid var(--line)" }}>{fmt(iso)}</strong>)}
             </div>
-            {visibleUsers.map((user, index) => <motion.div key={user.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(index * .025, .16) }} style={{ display: "grid", gridTemplateColumns: `180px repeat(${displayDates.length}, minmax(120px, 1fr))`, borderBottom: "1px solid var(--line)" }}>
-              <div style={{ padding: 12 }}><strong>{user.name}</strong><div className="muted-text">{user.dept}</div></div>
+            {visibleUsers.map((user, index) => <motion.div key={user.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(index * .025, .16) }} style={{ display: "grid", gridTemplateColumns: `${nameColumn} repeat(${displayDates.length}, minmax(112px, 1fr))`, borderBottom: "1px solid var(--line)" }}>
+              <div className="schedule-employee" style={{ padding: 12 }}><strong>{user.name}</strong><div className="muted-text schedule-employee-dept">{user.dept}</div></div>
               {displayDates.map((iso) => <div key={iso} style={{ padding: 7, minHeight: 92, borderLeft: "1px solid var(--line)", background: iso === TODAY ? "var(--soft)" : "transparent" }}>{schedulesFor(user.id, iso).map((schedule) => <ScheduleCard key={schedule.id} schedule={schedule} state={state} onOpen={() => setDetail(schedule)} />)}</div>)}
             </motion.div>)}
           </div>
@@ -253,10 +258,10 @@ export default function ScheduleView() {
       </Modal>
 
       <Modal open={formOpen} onClose={() => setFormOpen(false)} title="予定の登録" width={760}>
-        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>{FORM_MODES.map(([value, label]) => <button key={value} className="ghost-button" onClick={() => setFormMode(value)} style={{ background: formMode === value ? "var(--soft)" : "var(--panel)" }}>{label}</button>)}</div>
-        <div style={{ display: "grid", gap: 13 }}>
+        <div className="schedule-form-tabs" style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 16 }}>{FORM_MODES.map(([value, label]) => <button key={value} className="ghost-button" onClick={() => setFormMode(value)} style={{ background: formMode === value ? "var(--soft)" : "var(--panel)" }}>{label}</button>)}</div>
+        <div className="schedule-form" style={{ display: "grid", gap: 13 }}>
           <label>予定名<input value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }} /></label>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+          <div className="schedule-date-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
             <label>開始日<input type="date" value={form.date} onChange={(event) => setForm({ ...form, date: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }} /></label>
             {formMode !== "single" && <label>終了日<input type="date" value={form.endDate} onChange={(event) => setForm({ ...form, endDate: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }} /></label>}
             <label>開始<input type="time" disabled={form.allDay} value={form.start} onChange={(event) => setForm({ ...form, start: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }} /></label>
