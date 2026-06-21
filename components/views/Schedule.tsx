@@ -74,12 +74,12 @@ function ScheduleCard({ schedule, state, onOpen }: { schedule: Schedule; state: 
   return (
     <HoverCard content={<div><strong style={{ display: "block", marginBottom: 6 }}>{schedule.title}</strong><div className="muted-text">{scheduleTime(schedule)} / {schedule.location || "場所未定"}</div><div className="muted-text" style={{ marginTop: 3 }}>{names}</div>{schedule.detail && <p style={{ margin: "9px 0 0", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{schedule.detail}</p>}</div>}>
       <motion.button
-        layout initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} onClick={onOpen} whileHover={{ y: -2, scale: 1.01, boxShadow: "0 8px 18px rgba(0,0,0,.12)" }} whileTap={{ scale: .985 }} transition={{ duration: .13 }}
-        style={{ width: "100%", textAlign: "left", border: "1px solid var(--line)", borderRadius: 7, padding: "7px 8px", background: scheduleTone(schedule.type), color: "var(--text)", marginBottom: 5 }}
+        className="schedule-card"
+        layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} onClick={onOpen} whileHover={{ y: -1, boxShadow: "0 7px 16px rgba(0,0,0,.11)" }} whileTap={{ scale: .985 }} transition={{ duration: .13 }}
+        style={{ width: "100%", textAlign: "left", border: "1px solid var(--line)", borderRadius: 6, padding: "5px 7px", background: scheduleTone(schedule.type), color: "var(--text)", marginBottom: 4 }}
       >
-        <span style={{ display: "block", fontSize: 10, color: "var(--muted)" }}>{scheduleTime(schedule)}</span>
-        <strong style={{ display: "block", fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{schedule.title}</strong>
-        <span style={{ display: "block", fontSize: 10, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{names}</span>
+        <span className="schedule-card-time">{schedule.allDay ? "終日" : schedule.start}</span>
+        <strong className="schedule-card-title">{schedule.title}</strong>
       </motion.button>
     </HoverCard>
   );
@@ -232,7 +232,7 @@ export default function ScheduleView() {
             </div>
             {visibleUsers.map((user, index) => <motion.div key={user.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(index * .025, .16) }} style={{ display: "grid", gridTemplateColumns: `${nameColumn} repeat(${displayDates.length}, minmax(112px, 1fr))`, borderBottom: "1px solid var(--line)" }}>
               <div className="schedule-employee" style={{ padding: 12 }}><strong>{user.name}</strong><div className="muted-text schedule-employee-dept">{user.dept}</div></div>
-              {displayDates.map((iso) => <div key={iso} style={{ padding: 7, minHeight: 92, borderLeft: "1px solid var(--line)", background: iso === TODAY ? "var(--soft)" : "transparent" }}>{schedulesFor(user.id, iso).map((schedule) => <ScheduleCard key={schedule.id} schedule={schedule} state={state} onOpen={() => setDetail(schedule)} />)}</div>)}
+              {displayDates.map((iso) => <div key={iso} style={{ padding: 6, minHeight: 62, borderLeft: "1px solid var(--line)", background: iso === TODAY ? "var(--soft)" : "transparent" }}>{schedulesFor(user.id, iso).map((schedule) => <ScheduleCard key={schedule.id} schedule={schedule} state={state} onOpen={() => setDetail(schedule)} />)}</div>)}
             </motion.div>)}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", padding: 12 }}>

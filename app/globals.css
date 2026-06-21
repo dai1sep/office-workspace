@@ -68,6 +68,28 @@ input:focus, select:focus, textarea:focus {
   box-shadow: 0 0 0 3px rgba(53, 108, 138, 0.16);
 }
 
+.schedule-card {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.schedule-card-time {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.schedule-card-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;
