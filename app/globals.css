@@ -432,13 +432,180 @@ input:focus, select:focus, textarea:focus {
 }
 
 @media (max-width: 768px) {
+  html, body { width: 100%; overflow-x: hidden; }
+  body { font-size: 14px; -webkit-text-size-adjust: 100%; }
+  button, input, select, textarea { min-width: 0; }
+  input, select, textarea { width: 100%; min-height: 44px; font-size: 16px; }
+  textarea { min-height: 88px; }
+
   .app-shell { display: block; }
-  .app-main { min-height: 100vh; padding-bottom: 70px; }
-  .app-header { padding: 10px 14px; }
-  .main-content { padding: 14px; }
+  .app-main { min-height: 100dvh; padding-bottom: calc(66px + env(safe-area-inset-bottom)); }
+  .app-header { min-height: 56px; padding: 9px 12px; }
+  .main-content { padding: 10px 10px 18px; overflow-x: hidden; }
   .title-row h1 { font-size: 16px; }
   .view-icon { width: 28px; height: 28px; }
-  .panel { padding: 13px; border-radius: 9px; }
+  .panel { padding: 12px; border-radius: 8px; box-shadow: 0 5px 14px rgba(34, 31, 26, 0.06); }
+  .panel-title { margin-bottom: 9px; }
+  .ghost-button { min-height: 42px; border-radius: 8px; justify-content: center; }
+  .row-card { align-items: flex-start; flex-wrap: wrap; min-width: 0; }
+  .row-card > div { min-width: 0; }
+  .row-card strong { overflow-wrap: anywhere; }
+  .login-screen { min-height: 100dvh !important; padding: 10px !important; align-items: start; }
+  .login-panel { max-width: none !important; margin-top: 10px; padding: 20px 14px !important; }
+  .login-panel h1 { font-size: 19px !important; }
+  .login-panel button { min-height: 50px; }
+
+  .mobile-drawer {
+    width: min(88vw, 320px);
+    min-height: 100dvh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .mobile-drawer .sidebar-nav button { min-height: 44px; }
+  .drawer-overlay { z-index: 600; backdrop-filter: blur(3px); }
+  .mobile-drawer { z-index: 610; }
+
+  .header-actions .floating-menu {
+    position: fixed;
+    top: 58px;
+    right: 10px;
+    left: 10px;
+    width: auto !important;
+    max-height: calc(100dvh - 140px);
+    overflow-y: auto;
+  }
+
+  .modal-overlay {
+    align-items: flex-end !important;
+    justify-content: center !important;
+    padding: 0 !important;
+  }
+  .modal-surface {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: min(92dvh, calc(100dvh - 8px)) !important;
+    padding: 16px 14px calc(18px + env(safe-area-inset-bottom)) !important;
+    border-radius: 16px 16px 0 0 !important;
+    overscroll-behavior: contain;
+  }
+  .modal-drawer {
+    height: 100dvh !important;
+    max-height: 100dvh !important;
+    border-radius: 0 !important;
+  }
+  .modal-surface [style*="grid-template-columns: 1fr 1fr"],
+  .modal-surface [style*="grid-template-columns: repeat(2"],
+  .modal-surface [style*="grid-template-columns: repeat(auto-fit"],
+  .modal-surface [style*="grid-template-columns: 36px 110px"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .modal-surface [style*="display: flex"] { flex-wrap: wrap; }
+  .modal-surface fieldset { min-width: 0; }
+  .modal-surface .ghost-button { flex: 1 1 auto; }
+
+  .dashboard-grid { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 9px !important; }
+  .dashboard-metric { grid-column: auto !important; min-width: 0; }
+  .dashboard-metric .panel { min-height: 126px; padding: 11px; }
+  .dashboard-metric .panel-title { align-items: flex-start; gap: 4px; }
+  .dashboard-metric .panel-title .status { padding-inline: 6px; font-size: 9px; }
+  .dashboard-metric .panel > strong { font-size: 25px !important; }
+  .dashboard-wide-panel, .dashboard-summary-panel { grid-column: 1 / -1 !important; }
+  .employee-schedule-grid, .weekly-schedule-grid {
+    display: flex !important;
+    gap: 9px !important;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    padding: 1px 1px 8px;
+  }
+  .employee-schedule-grid::-webkit-scrollbar, .weekly-schedule-grid::-webkit-scrollbar { display: none; }
+  .employee-schedule-grid > *, .weekly-schedule-grid > * {
+    flex: 0 0 82%;
+    scroll-snap-align: start;
+  }
+  .employee-hover-pop {
+    position: fixed !important;
+    left: 10px !important;
+    right: 10px !important;
+    top: auto !important;
+    bottom: calc(72px + env(safe-area-inset-bottom));
+    width: auto !important;
+    z-index: 700;
+  }
+  .dashboard-more-pop {
+    position: static !important;
+    width: 100% !important;
+    margin-top: 8px;
+    pointer-events: auto;
+  }
+
+  .schedule-toolbar, .bulletin-toolbar, .workflow-toolbar, .view-toolbar {
+    padding: 10px !important;
+    gap: 7px !important;
+    align-items: stretch !important;
+  }
+  .schedule-toolbar > input, .bulletin-toolbar > input, .workflow-toolbar > input,
+  .view-toolbar input { flex: 1 1 100%; margin-left: 0 !important; min-width: 0 !important; }
+  .schedule-toolbar > select { flex: 1 1 calc(50% - 4px); }
+  .schedule-toolbar > .ghost-button { flex: 1 1 calc(50% - 4px); }
+  .schedule-nav { width: 100%; margin-left: 0 !important; justify-content: space-between; }
+  .schedule-nav strong { min-width: 0; text-align: center; font-size: 11px !important; }
+  .schedule-utility {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .schedule-utility > * { flex: 0 0 auto; }
+  .schedule-grid-panel { margin-inline: -2px; scroll-behavior: smooth; }
+  .schedule-grid-panel > div > div > :first-child {
+    position: sticky;
+    left: 0;
+    z-index: 4;
+    background: var(--panel);
+    box-shadow: 1px 0 0 var(--line);
+  }
+  .schedule-view > .panel:has(> .panel-title + div[style*="repeat(7"]) { overflow-x: auto; }
+  .schedule-view > .panel > div[style*="repeat(7"] { min-width: 700px; }
+
+  .bulletin-layout { grid-template-columns: minmax(0, 1fr) !important; }
+  .bulletin-categories { overflow-x: auto; padding: 8px !important; scrollbar-width: none; }
+  .bulletin-categories .panel-title { display: none; }
+  .bulletin-categories > div:last-child { display: flex !important; width: max-content; gap: 6px !important; }
+  .bulletin-categories > div:last-child > div { display: flex !important; gap: 4px !important; }
+  .bulletin-categories .ghost-button { white-space: nowrap; }
+  .bulletin-layout > section > button[style*="grid-template-columns"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .bulletin-layout > section > button[style*="grid-template-columns"] > div:last-child { text-align: left !important; }
+
+  .workflow-list > button[style*="grid-template-columns"] {
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    gap: 5px 8px !important;
+  }
+  .workflow-list > button[style*="grid-template-columns"] > span:first-child {
+    grid-column: 1 / -1;
+    font-size: 10px;
+  }
+  .view-layout > div[style*="grid-template-columns"],
+  .view-layout [style*="repeat(3, minmax"],
+  .view-layout [style*="repeat(auto-fill"] {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .view-toolbar > div:last-child { width: 100%; }
+  .view-toolbar > div:last-child > * { flex: 1 1 auto; }
+
+  .canvas-toolbar {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .canvas-toolbar > * { flex: 0 0 auto; }
+  .canvas-toolbar .muted-text { display: none; }
+  .canvas-board {
+    height: calc(100dvh - 190px) !important;
+    min-height: 460px;
+    overflow: auto !important;
+  }
+  .canvas-stage { min-width: 780px; min-height: 560px; }
 
   .mobile-bottom-nav {
     position: fixed;
@@ -448,6 +615,7 @@ input:focus, select:focus, textarea:focus {
     z-index: 250;
     display: flex;
     align-items: stretch;
+    min-height: 62px;
     padding-bottom: env(safe-area-inset-bottom);
     border-top: 1px solid var(--line);
     background: var(--panel);
@@ -455,7 +623,8 @@ input:focus, select:focus, textarea:focus {
 
   .mobile-bottom-nav button {
     flex: 1;
-    min-height: 58px;
+    min-width: 0;
+    min-height: 60px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -464,10 +633,10 @@ input:focus, select:focus, textarea:focus {
     border: 0;
     background: transparent;
     color: var(--muted);
-    font-size: 10px;
+    font-size: 9px;
   }
 
   .mobile-bottom-nav button.active { color: var(--green); }
-  .mobile-bottom-nav span { font-size: 18px; }
-  .mobile-bottom-nav b { font-weight: 700; }
+  .mobile-bottom-nav span { font-size: 17px; line-height: 1; }
+  .mobile-bottom-nav b { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 700; }
 }

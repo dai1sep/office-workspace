@@ -25,6 +25,7 @@ export default function Modal({ open, onClose, title, children, width = 480 }: P
     <AnimatePresence>
       {open && (
         <motion.div
+          className="modal-overlay"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -43,6 +44,7 @@ export default function Modal({ open, onClose, title, children, width = 480 }: P
           onClick={onClose}
         >
           <motion.div
+            className={`modal-surface ${drawer ? "modal-drawer" : "modal-dialog"}`}
             initial={drawer ? { x: "100%" } : { opacity: 0, scale: 0.96, y: 18 }}
             animate={drawer ? { x: 0 } : { opacity: 1, scale: 1, y: 0 }}
             exit={drawer ? { x: "100%" } : { opacity: 0, scale: 0.96, y: 12 }}

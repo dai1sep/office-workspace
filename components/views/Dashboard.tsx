@@ -57,7 +57,7 @@ function EmployeeSchedule({ item }: { item: Schedule & { memberNames: string } }
   const [open, setOpen] = useState(false);
 
   return (
-    <div style={{ position: "relative" }} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+    <div className="employee-schedule" style={{ position: "relative" }} onClick={() => setOpen((value) => !value)} onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
       <motion.div
         whileHover={{ y: -1 }}
         style={{
@@ -82,7 +82,7 @@ function EmployeeSchedule({ item }: { item: Schedule & { memberNames: string } }
       <AnimatePresence>
         {open && (
           <motion.div
-            className="hover-pop"
+            className="hover-pop employee-hover-pop"
             initial={{ opacity: 0, y: 8, scale: 0.98 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.98 }}
@@ -118,42 +118,42 @@ export default function Dashboard() {
   const weekDays = Array.from({ length: 5 }, (_, i) => addDays(TODAY, i));
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gap: 14 }}>
-      <div style={{ gridColumn: "span 3" }}>
+    <div className="dashboard-grid" style={{ display: "grid", gridTemplateColumns: "repeat(12, minmax(0, 1fr))", gap: 14 }}>
+      <div className="dashboard-metric" style={{ gridColumn: "span 3" }}>
         <MetricCard title="未読メール" value={unreadMails.length} sub="確認と返信待ち" label="メール" onClick={() => setView("mail")} />
       </div>
-      <div style={{ gridColumn: "span 3" }}>
+      <div className="dashboard-metric" style={{ gridColumn: "span 3" }}>
         <MetricCard title="今日の予定" value={todaySchedules.length} sub="会議・外出・作業" label="予定" onClick={() => setView("schedule")} />
       </div>
-      <div style={{ gridColumn: "span 3" }}>
+      <div className="dashboard-metric" style={{ gridColumn: "span 3" }}>
         <MetricCard title="承認待ち" value={pendingWorkflows.length} sub="申請の確認中" label="承認" onClick={() => setView("workflow")} />
       </div>
-      <div style={{ gridColumn: "span 3" }}>
+      <div className="dashboard-metric" style={{ gridColumn: "span 3" }}>
         <MetricCard title="期限ToDo" value={todayTodos.length} sub="本日までのタスク" label="ToDo" onClick={() => setView("todo")} />
       </div>
 
-      <section className="panel" style={{ gridColumn: "span 12" }}>
+      <section className="panel dashboard-wide-panel" style={{ gridColumn: "span 12" }}>
         <div className="panel-title">予定が入っている社員</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
+        <div className="employee-schedule-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
           {visibleSchedules.map((item) => (
             <EmployeeSchedule key={item.id} item={item} />
           ))}
         </div>
         {hiddenSchedules.length > 0 && (
-          <div style={{ position: "relative", marginTop: 10 }} onMouseEnter={() => setMoreOpen(true)} onMouseLeave={() => setMoreOpen(false)}>
-            <button style={{ border: 0, background: "transparent", color: "var(--blue)", fontSize: 12, fontWeight: 700, padding: 0 }}>
+          <div className="dashboard-more" style={{ position: "relative", marginTop: 10 }} onMouseEnter={() => setMoreOpen(true)} onMouseLeave={() => setMoreOpen(false)}>
+            <button onClick={() => setMoreOpen((value) => !value)} style={{ border: 0, background: "transparent", color: "var(--blue)", fontSize: 12, fontWeight: 700, padding: 0 }}>
               さらに{hiddenSchedules.length}件予定あり
             </button>
             <AnimatePresence>
               {moreOpen && (
                 <motion.div
-                  className="hover-pop"
+                  className="hover-pop dashboard-more-pop"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
                   style={{ left: 0, top: "calc(100% + 8px)", width: "100%", padding: 12, pointerEvents: "auto" }}
                 >
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
+                  <div className="employee-schedule-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
                     {hiddenSchedules.map((item) => (
                       <EmployeeSchedule key={item.id} item={item} />
                     ))}
@@ -165,11 +165,11 @@ export default function Dashboard() {
         )}
       </section>
 
-      <section className="panel" style={{ gridColumn: "span 12" }}>
+      <section className="panel dashboard-wide-panel" style={{ gridColumn: "span 12" }}>
         <div className="panel-title">
           自分の週間スケジュール <span style={{ fontWeight: 500 }}>{TODAY} から5日間</span>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
+        <div className="weekly-schedule-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 10 }}>
           {weekDays.map((day) => {
             const items = state.schedules.filter((s) => s.date === day && s.members.includes(state.currentUser));
             return (
@@ -193,7 +193,7 @@ export default function Dashboard() {
         </div>
       </section>
 
-      <section className="panel" style={{ gridColumn: "span 4" }}>
+      <section className="panel dashboard-summary-panel" style={{ gridColumn: "span 4" }}>
         <div className="panel-title">お知らせ</div>
         {unreadBulletins.slice(0, 4).map((b) => (
           <div className="row-card" key={b.id}>
@@ -206,7 +206,7 @@ export default function Dashboard() {
           </div>
         ))}
       </section>
-      <section className="panel" style={{ gridColumn: "span 4" }}>
+      <section className="panel dashboard-summary-panel" style={{ gridColumn: "span 4" }}>
         <div className="panel-title">ToDo</div>
         {todayTodos.slice(0, 4).map((t) => (
           <div className="row-card" key={t.id}>
@@ -221,7 +221,7 @@ export default function Dashboard() {
           </div>
         ))}
       </section>
-      <section className="panel" style={{ gridColumn: "span 4" }}>
+      <section className="panel dashboard-summary-panel" style={{ gridColumn: "span 4" }}>
         <div className="panel-title">ワークフロー</div>
         {pendingWorkflows.slice(0, 4).map((w) => (
           <div className="row-card" key={w.id}>

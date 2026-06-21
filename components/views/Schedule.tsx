@@ -197,14 +197,14 @@ export default function ScheduleView() {
   const monthDates = Array.from({ length: 42 }, (_, index) => { const d = new Date(monthGridStart); d.setDate(d.getDate() + index); return isoOf(d); });
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <section className="panel" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="schedule-view" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <section className="panel schedule-toolbar" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <button className="ghost-button" onClick={() => setFormOpen(true)} style={{ background: "var(--green)", borderColor: "var(--green)", color: "white" }}>予定を登録</button>
         <button className="ghost-button" onClick={() => setAdjustOpen(true)}>予定を調整</button>
         <select value={mode} onChange={(event) => setMode(event.target.value as ViewMode)}>{VIEW_MODES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select>
         {mode.startsWith("group") && <select value={department} onChange={(event) => resetPaging(event.target.value)}>{departments.map((value) => <option key={value}>{value}</option>)}</select>}
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="予定を検索" style={{ minWidth: 160 }} />
-        <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+        <div className="schedule-nav" style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
           <button className="ghost-button" onClick={() => move(mode.endsWith("Day") ? -1 : -7)}>前へ</button>
           <button className="ghost-button" onClick={() => setAnchor(TODAY)}>今日</button>
           <strong style={{ fontSize: 13 }}>{fmt(anchor)}</strong>
@@ -212,7 +212,7 @@ export default function ScheduleView() {
         </div>
       </section>
 
-      <section className="panel" style={{ padding: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
+      <section className="panel schedule-utility" style={{ padding: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
         <button className="ghost-button" onClick={() => setFixedDates((value) => !value)}>{fixedDates ? "日付固定を解除" : "日付を固定"}</button>
         <button className="ghost-button" onClick={exportCsv}>CSV出力</button>
         <button className="ghost-button" onClick={() => window.print()}>印刷</button>
@@ -220,7 +220,7 @@ export default function ScheduleView() {
       </section>
 
       {mode.startsWith("group") && (
-        <motion.section key={mode} className="panel" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .2 }} style={{ overflowX: "auto", padding: 0 }}>
+        <motion.section key={mode} className="panel schedule-grid-panel" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .2 }} style={{ overflowX: "auto", padding: 0 }}>
           <div style={{ minWidth: mode === "groupWeek" ? 1040 : 520 }}>
             <div style={{ display: "grid", gridTemplateColumns: `180px repeat(${displayDates.length}, minmax(120px, 1fr))`, position: fixedDates ? "sticky" : "static", top: 0, zIndex: 3, background: "var(--panel)", borderBottom: "1px solid var(--line)" }}>
               <strong style={{ padding: 12 }}>社員</strong>{displayDates.map((iso) => <strong key={iso} style={{ padding: 12, textAlign: "center", borderLeft: "1px solid var(--line)" }}>{fmt(iso)}</strong>)}

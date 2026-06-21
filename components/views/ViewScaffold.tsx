@@ -16,8 +16,8 @@ function Empty({ text = "表示するデータがありません。" }: { text?:
 
 function Layout({ title, lead, actions, children }: { title: string; lead?: string; actions?: React.ReactNode; children: React.ReactNode }) {
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <section className="panel" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+    <div className="view-layout" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <section className="panel view-toolbar" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
         <div>
           <strong>{title}</strong>
           <div className="muted-text" style={{ marginTop: 3 }}>{lead ?? "登録、確認、検索を同じ画面内で扱えます。"}</div>

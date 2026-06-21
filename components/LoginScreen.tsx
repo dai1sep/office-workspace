@@ -9,8 +9,8 @@ export default function LoginScreen() {
   const selectedUser = state.users.find((user) => user.id === selected);
 
   return (
-    <div style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "var(--bg)" }}>
-      <div className="panel" style={{ width: "100%", maxWidth: 460, padding: 34 }}>
+    <div className="login-screen" style={{ minHeight: "100vh", display: "grid", placeItems: "center", padding: 24, background: "var(--bg)" }}>
+      <div className="panel login-panel" style={{ width: "100%", maxWidth: 460, padding: 34 }}>
         <div style={{ textAlign: "center", marginBottom: 28 }}>
           <div className="view-icon" style={{ margin: "0 auto 10px" }}>
             家

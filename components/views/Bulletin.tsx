@@ -134,15 +134,15 @@ export default function BulletinView() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <section className="panel" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="bulletin-view" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <section className="panel bulletin-toolbar" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <button className="ghost-button" onClick={() => { setEditingId(null); setForm(EMPTY_FORM); setFormOpen(true); }} style={{ background: "var(--green)", color: "white", borderColor: "var(--green)" }}>掲示を書き込む</button>
         {[(["latest", "最新一覧"] as const), (["mine", "作成一覧"] as const), (["drafts", "下書き"] as const)].map(([value, label]) => <button key={value} className="ghost-button" onClick={() => setMode(value)} style={{ background: mode === value ? "var(--soft)" : "var(--panel)" }}>{label}</button>)}
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="掲示を検索" style={{ marginLeft: "auto", minWidth: 190 }} />
       </section>
 
-      <motion.div key={`${mode}-${category}`} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .2 }} style={{ display: "grid", gridTemplateColumns: "minmax(180px, 230px) minmax(0, 1fr)", gap: 12 }}>
-        <aside className="panel">
+      <motion.div className="bulletin-layout" key={`${mode}-${category}`} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .2 }} style={{ display: "grid", gridTemplateColumns: "minmax(180px, 230px) minmax(0, 1fr)", gap: 12 }}>
+        <aside className="panel bulletin-categories">
           <div className="panel-title">カテゴリ</div>
           <div style={{ display: "grid", gap: 6 }}>{categories.map((value) => <div key={value} style={{ display: "grid", gridTemplateColumns: value === "すべて" ? "1fr" : "1fr auto", gap: 5 }}><button className="ghost-button" onClick={() => setCategory(value)} style={{ justifyContent: "space-between", background: category === value ? "var(--soft)" : "var(--panel)" }}><span>{value}</span><span className="muted-text">{value === "すべて" ? state.bulletins.length : state.bulletins.filter((item) => item.category === value).length}</span></button>{value !== "すべて" && <button className="ghost-button" onClick={() => toggleSubscription(value)} title="カテゴリ通知">{subscriptions.includes(value) ? "通知中" : "通知"}</button>}</div>)}</div>
         </aside>

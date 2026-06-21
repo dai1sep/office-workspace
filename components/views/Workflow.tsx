@@ -142,14 +142,14 @@ export default function WorkflowView() {
   const pendingForMe = detail && routeFor(detail)[detail.currentStep ?? detail.approved.length]?.userIds.includes(me) && !["承認済", "却下", "差し戻し"].includes(detail.status);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <section className="panel" style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
+    <div className="workflow-view" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <section className="panel workflow-toolbar" style={{ display: "flex", gap: 7, alignItems: "center", flexWrap: "wrap" }}>
         <button className="ghost-button" onClick={openNew} style={{ background: "var(--green)", color: "white", borderColor: "var(--green)" }}>申請する</button>
         {LISTS.map(([value, label]) => <button key={value} className="ghost-button" onClick={() => setMode(value)} style={{ background: mode === value ? "var(--soft)" : "var(--panel)" }}>{label}</button>)}
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="申請を検索" style={{ marginLeft: "auto", minWidth: 190 }} />
       </section>
 
-      <motion.section key={mode} className="panel" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .2 }}>
+      <motion.section key={mode} className="panel workflow-list" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .2 }}>
         <div className="panel-title">{LISTS.find(([value]) => value === mode)?.[1]} <span className="muted-text">{visible.length}件</span></div>
         {visible.length === 0 && <div className="muted-text" style={{ padding: 24, textAlign: "center" }}>該当する申請はありません。</div>}
         {visible.map((item) => <button key={item.id} onClick={() => item.draft ? openDraft(item) : setDetailId(item.id)} style={{ width: "100%", border: 0, borderBottom: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "13px 4px", textAlign: "left", display: "grid", gridTemplateColumns: "110px minmax(0, 1fr) auto", gap: 12, alignItems: "center" }}><span className="muted-text">{item.number ?? item.id}</span><div><strong>{item.title}</strong><div className="muted-text">{item.type} / {userName(state, item.applicant)} / {item.dept} / {item.date}</div></div><span style={{ padding: "4px 8px", borderRadius: 5, background: resultTone(item.status), fontSize: 11 }}>{item.status}</span></button>)}

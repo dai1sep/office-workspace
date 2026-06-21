@@ -27,6 +27,13 @@ const NAV_ITEMS: { view: ViewId; icon: string; label: string; adminOnly?: boolea
 ];
 
 const BOTTOM_TABS: ViewId[] = ["dashboard", "todo", "schedule", "bulletin", "messages"];
+const MOBILE_LABELS: Partial<Record<ViewId, string>> = {
+  dashboard: "ホーム",
+  todo: "ToDo",
+  schedule: "予定",
+  bulletin: "掲示",
+  messages: "連絡",
+};
 
 export default function Sidebar() {
   const { state, currentView, setView, theme, toggleTheme, sidebarCollapsed, toggleSidebar, currentUser, can } = useApp();
@@ -97,7 +104,7 @@ export default function Sidebar() {
           {NAV_ITEMS.filter((item) => BOTTOM_TABS.includes(item.view)).map((item) => (
             <button key={item.view} className={currentView === item.view ? "active" : ""} onClick={() => setView(item.view)}>
               <span>{item.icon}</span>
-              <b>{item.label.replace("管理", "")}</b>
+              <b>{MOBILE_LABELS[item.view] ?? item.label}</b>
             </button>
           ))}
           <button onClick={() => setDrawerOpen(true)}>

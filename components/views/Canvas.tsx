@@ -25,12 +25,12 @@ export default function CanvasView() {
   const [dragging, setDragging] = useState<{ id: string; ox: number; oy: number } | null>(null);
   const [scale, setScale] = useState(1);
 
-  function onMouseDown(e: React.MouseEvent, id: string) {
+  function onPointerDown(e: React.PointerEvent, id: string) {
     e.preventDefault();
     setDragging({ id, ox: e.clientX, oy: e.clientY });
   }
 
-  function onMouseMove(e: React.MouseEvent) {
+  function onPointerMove(e: React.PointerEvent) {
     if (!dragging) return;
     const dx = (e.clientX - dragging.ox) / scale;
     const dy = (e.clientY - dragging.oy) / scale;
@@ -58,8 +58,8 @@ export default function CanvasView() {
   }
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-      <section className="panel" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+    <div className="canvas-view" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+      <section className="panel canvas-toolbar" style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <button className="ghost-button" onClick={addNote} style={{ background: "var(--green)", color: "#fff", borderColor: "var(--green)" }}>付箋を追加</button>
         <button className="ghost-button" onClick={() => setScale((value) => Math.max(0.75, value - 0.1))}>縮小</button>
         <button className="ghost-button" onClick={() => setScale(1)}>100%</button>
@@ -68,9 +68,11 @@ export default function CanvasView() {
       </section>
 
       <div
-        onMouseMove={onMouseMove}
-        onMouseUp={() => setDragging(null)}
-        onMouseLeave={() => setDragging(null)}
+        className="canvas-board"
+        onPointerMove={onPointerMove}
+        onPointerUp={() => setDragging(null)}
+        onPointerCancel={() => setDragging(null)}
+        onPointerLeave={() => setDragging(null)}
         style={{
           position: "relative",
           height: 600,
@@ -79,6 +81,7 @@ export default function CanvasView() {
           borderRadius: 10,
           background: "var(--soft)",
           cursor: dragging ? "grabbing" : "default",
+          touchAction: "none",
         }}
       >
         <svg style={{ position: "absolute", inset: 0, width: "100%", height: "100%", opacity: 0.55 }}>
@@ -89,7 +92,7 @@ export default function CanvasView() {
           </defs>
           <rect width="100%" height="100%" fill="url(#grid)" />
         </svg>
-        <div style={{ position: "absolute", inset: 0, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
+        <div className="canvas-stage" style={{ position: "absolute", inset: 0, transform: `scale(${scale})`, transformOrigin: "0 0" }}>
           {notes.map((note) => (
             <motion.div
               key={note.id}
@@ -109,12 +112,12 @@ export default function CanvasView() {
                 cursor: dragging?.id === note.id ? "grabbing" : "grab",
                 userSelect: "none",
               }}
-              onMouseDown={(e) => onMouseDown(e, note.id)}
+              onPointerDown={(e) => onPointerDown(e, note.id)}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
                 <span style={{ fontSize: 11, fontWeight: 800, color: "rgba(0,0,0,0.48)" }}>MEMO</span>
                 <button
-                  onMouseDown={(e) => e.stopPropagation()}
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => removeNote(note.id)}
                   style={{ border: 0, background: "transparent", color: "rgba(0,0,0,0.48)", fontSize: 18, lineHeight: 1 }}
                 >
@@ -124,7 +127,7 @@ export default function CanvasView() {
               <textarea
                 value={note.text}
                 onChange={(e) => updateText(note.id, e.target.value)}
-                onMouseDown={(e) => e.stopPropagation()}
+                onPointerDown={(e) => e.stopPropagation()}
                 style={{
                   width: "100%",
                   minHeight: 78,
