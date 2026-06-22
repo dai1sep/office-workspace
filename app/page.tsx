@@ -46,7 +46,7 @@ const VIEW_META: Record<ViewId, { icon: string; title: string; lead: string }> =
   facilities: { icon: "室", title: "設備予約", lead: "会議室、備品、車両の予約を確認します。" },
   timecard: { icon: "勤", title: "タイムカード", lead: "出退勤、休憩、残業見込みを確認します。" },
   admin: { icon: "管", title: "組織・権限管理", lead: "部署、役職、ロール、閲覧制御を設定します。" },
-  spaces: { icon: "空", title: "スペース", lead: "案件、部門、チーム単位の作業場所です。" },
+  spaces: { icon: "工", title: "工事スペース", lead: "工事現場ごとに配属者をドラッグ操作で管理します。" },
   knowledge: { icon: "知", title: "ナレッジ", lead: "会議メモ、FAQ、文書を検索・整理します。" },
   canvas: { icon: "板", title: "ホワイトボード", lead: "業務フローや会議中のアイデアを付箋で整理します。" },
   search: { icon: "検", title: "検索結果", lead: "業務データを横断検索します。" },

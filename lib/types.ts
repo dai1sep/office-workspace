@@ -273,6 +273,16 @@ export interface KnowledgeArticle {
   pinned: boolean;
 }
 
+export interface WorkSpace {
+  id: string;
+  name: string;
+  color: string;
+  memberIds: string[];
+  description?: string;
+  location?: string;
+  createdAt: string;
+}
+
 export interface UiPrefs {
   theme: "default" | "focus" | "minimal";
   density: "standard" | "compact" | "spacious";
@@ -297,6 +307,7 @@ export interface AppState {
   constructionLicenses: ConstructionLicense[];
   employeeCertifications: EmployeeCertification[];
   knowledge: KnowledgeArticle[];
+  workspaces: WorkSpace[];
   uiPrefs: UiPrefs;
   bulletinSubscriptions?: string[];
 }

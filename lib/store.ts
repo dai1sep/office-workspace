@@ -119,6 +119,11 @@ const seedState: AppState = {
     { id: "k4", title: "セキュリティガイドライン", body: "## パスワードポリシー\n- 8文字以上、英数字混在\n- 90日ごとに変更\n\n## 情報取り扱い\n- 社外持ち出しは申請が必要\n- USBメモリの使用は禁止\n\n## インシデント報告\n疑わしい事象はすぐに情報システム部へ報告してください。", author: "u3", category: "ルール・規程", tags: ["セキュリティ", "ルール"], date: "2026-01-20", updatedAt: "2026-05-15", pinned: true },
     { id: "k5", title: "新人オンボーディングガイド", body: "## 入社初日\n1. PCセットアップ\n2. 社内システムアカウント発行依頼\n3. 部署紹介\n\n## 1週間以内\n- 業務マニュアル閲覧\n- 担当業務のヒアリング\n\n## 1ヶ月以内\n- 各種申請フロー体験\n- 目標設定シート提出", author: "u1", category: "人事・総務", tags: ["オンボーディング", "新人"], date: "2026-02-01", updatedAt: "2026-04-01", pinned: false },
   ],
+  workspaces: [
+    { id: "ws1", name: "田辺邸新築工事", color: "#3f6b5b", memberIds: ["u2", "u4"], location: "大阪市住吉区", description: "木造2階建 延床120㎡", createdAt: "2026-06-01" },
+    { id: "ws2", name: "山田ビル改修工事", color: "#356c8a", memberIds: ["u5"], location: "神戸市中央区", description: "RC造4階 内装改修", createdAt: "2026-06-10" },
+    { id: "ws3", name: "社内設備更新", color: "#a9622a", memberIds: [], location: "自社", description: "空調・電気設備", createdAt: "2026-06-15" },
+  ],
   uiPrefs: {
     theme: "default",
     density: "standard",

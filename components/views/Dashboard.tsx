@@ -194,16 +194,30 @@ export default function Dashboard() {
       </section>
 
       <section className="panel dashboard-summary-panel" style={{ gridColumn: "span 4" }}>
-        <div className="panel-title">お知らせ</div>
-        {unreadBulletins.slice(0, 4).map((b) => (
-          <div className="row-card" key={b.id}>
-            <div style={{ flex: 1 }}>
-              <strong>{b.title}</strong>
-              <br />
-              <span className="muted-text">{b.category}</span>
-            </div>
-            <StatusBadge label={b.important ? "重要" : "通常"} />
+        <div className="panel-title" style={{ justifyContent: "space-between" }}>
+          <span>掲示板 新着</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            {unreadBulletins.length > 0 && <span className="status red">{unreadBulletins.length}件未読</span>}
+            <button onClick={() => setView("bulletin")} style={{ border: 0, background: "transparent", color: "var(--blue)", fontSize: 11, fontWeight: 700, cursor: "pointer", padding: 0, textTransform: "none", letterSpacing: 0 }}>すべて見る</button>
           </div>
+        </div>
+        {unreadBulletins.length === 0 && (
+          <div className="muted-text" style={{ padding: "10px 0", textAlign: "center" }}>新着はありません</div>
+        )}
+        {unreadBulletins.slice(0, 5).map((b) => (
+          <motion.button
+            key={b.id}
+            onClick={() => setView("bulletin")}
+            whileHover={{ x: 2 }}
+            style={{ width: "100%", display: "flex", alignItems: "flex-start", gap: 9, padding: "8px 0", borderTop: "none", borderLeft: "none", borderRight: "none", borderBottom: "1px solid var(--line)", background: "transparent", textAlign: "left", cursor: "pointer", color: "var(--text)" }}
+          >
+            <span style={{ width: 8, height: 8, borderRadius: "50%", background: b.important ? "var(--red)" : "var(--blue)", flexShrink: 0, marginTop: 5 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 600, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{b.title}</div>
+              <div className="muted-text" style={{ marginTop: 2 }}>{b.author} · {b.date} · {b.category}</div>
+            </div>
+            {b.important && <span className="status red" style={{ flexShrink: 0 }}>重要</span>}
+          </motion.button>
         ))}
       </section>
       <section className="panel dashboard-summary-panel" style={{ gridColumn: "span 4" }}>
