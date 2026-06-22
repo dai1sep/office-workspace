@@ -41,6 +41,8 @@ export default function NotificationBell() {
     return () => document.removeEventListener("mousedown", onClickOutside);
   }, [open]);
 
+  const dotColor: Record<string, string> = { "承認確認": "var(--orange)", "掲示板": "var(--blue)", "ToDo期限": "var(--red)" };
+
   return (
     <div ref={ref} style={{ position: "relative" }}>
       <button className="ghost-button" onClick={() => setOpen((value) => !value)} aria-label="通知">
@@ -49,28 +51,26 @@ export default function NotificationBell() {
       </button>
       <AnimatePresence>
         {open && (
-          <motion.div className="floating-menu" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} style={{ width: 320 }}>
-            <div className="panel-title" style={{ margin: "4px 6px 8px" }}>
-              通知
+          <motion.div className="floating-menu" initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -6 }} style={{ width: 300, padding: 6 }}>
+            <div style={{ padding: "4px 6px 6px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span style={{ fontSize: 11, fontWeight: 800, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>通知</span>
+              {notices.length > 0 && <span className="status">{notices.length}件</span>}
             </div>
             {notices.length === 0 ? (
-              <div className="muted-text" style={{ padding: 10 }}>
-                新しい通知はありません。
-              </div>
+              <div className="muted-text" style={{ padding: "8px 6px" }}>新しい通知はありません。</div>
             ) : (
               notices.map((notice) => (
                 <button
                   key={notice.id}
-                  onClick={() => {
-                    setView(notice.view);
-                    setOpen(false);
-                  }}
+                  className="notice-card"
+                  onClick={() => { setView(notice.view); setOpen(false); }}
                 >
-                  <strong>{notice.title}</strong>
-                  <br />
-                  <span className="muted-text">
-                    {notice.body} / {notice.time}
+                  <span className="notice-card-dot" style={{ background: dotColor[notice.title] ?? "var(--muted)" }} />
+                  <span className="notice-card-body">
+                    <span className="notice-card-label">{notice.title}</span>
+                    <span className="notice-card-title">{notice.body}</span>
                   </span>
+                  <span className="notice-card-time">{notice.time}</span>
                 </button>
               ))
             )}
