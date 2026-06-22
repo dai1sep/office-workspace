@@ -124,6 +124,41 @@ const seedState: AppState = {
     { id: "ws2", name: "山田ビル改修工事", color: "#356c8a", memberIds: ["u5"], location: "神戸市中央区", description: "RC造4階 内装改修", createdAt: "2026-06-10" },
     { id: "ws3", name: "社内設備更新", color: "#a9622a", memberIds: [], location: "自社", description: "空調・電気設備", createdAt: "2026-06-15" },
   ],
+  dailyReports: [
+    {
+      id: "dr1",
+      workspaceId: "ws1",
+      meetingDate: "2026-06-18",
+      implementDate: "2026-06-19",
+      weather: "晴れ",
+      plannedWork: "1階床組工事・断熱材敷設",
+      actualWork: "1階床組工事完了。断熱材は材料搬入のみ。",
+      safetyItems: [
+        { who: "田中", toWhom: "作業員全員", status: "朝礼にて安全確認済み" },
+      ],
+      attendees: [
+        { name: "田中", jobType: "現場監督", present: true, startTime: "08:00", endTime: "17:00" },
+        { name: "鈴木", jobType: "大工", present: true, startTime: "08:00", endTime: "17:00" },
+      ],
+      subcontractors: [
+        { company: "○○工務店", jobType: "大工", workers: 3, startTime: "08:00", endTime: "17:00" },
+      ],
+      equipment: [
+        { name: "コンプレッサー", count: 1, fuel: 15 },
+      ],
+      materials: [
+        { name: "断熱材", type: "グラスウール", receivedToday: 50, receivedTotal: 50, usedToday: 0, usedTotal: 0, remaining: 50 },
+      ],
+      progressRate: 35,
+      plannedDays: 90,
+      remainingDays: 62,
+      notes: "明日は断熱材敷設を優先する。",
+      approvals: {},
+      createdBy: "u2",
+      createdAt: "2026-06-19",
+      status: "submitted",
+    },
+  ],
   uiPrefs: {
     theme: "default",
     density: "standard",

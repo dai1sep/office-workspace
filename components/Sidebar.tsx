@@ -23,6 +23,7 @@ const NAV_ITEMS: { view: ViewId; icon: string; label: string; adminOnly?: boolea
   { view: "knowledge", icon: "知", label: "ナレッジ" },
   { view: "canvas", icon: "板", label: "ホワイトボード" },
   { view: "licenses", icon: "証", label: "資格・許可管理" },
+  { view: "dailyreport", icon: "日", label: "工事日報" },
 ];
 
 const BOTTOM_TABS: ViewId[] = ["dashboard", "todo", "schedule", "bulletin", "messages"];

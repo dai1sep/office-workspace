@@ -27,6 +27,7 @@ import FolderView from "@/components/views/Folder";
 import CanvasView from "@/components/views/Canvas";
 import SearchView from "@/components/views/Search";
 import LicensesView from "@/components/views/Licenses";
+import DailyReportView from "@/components/views/DailyReport";
 import Placeholder from "@/components/views/Placeholder";
 import { useApp } from "@/lib/context";
 import { ViewId } from "@/lib/types";
@@ -51,6 +52,7 @@ const VIEW_META: Record<ViewId, { icon: string; title: string; lead: string }> =
   canvas: { icon: "板", title: "ホワイトボード", lead: "業務フローや会議中のアイデアを付箋で整理します。" },
   search: { icon: "検", title: "検索結果", lead: "業務データを横断検索します。" },
   licenses: { icon: "証", title: "資格・許可管理", lead: "建設業許可・社員資格の取得状況と有効期限を管理します。" },
+  dailyreport: { icon: "日", title: "工事日報", lead: "工事打合簿・品質安全日誌を記録・提出・承認します。" },
 };
 
 function ViewContent({ view }: { view: ViewId }) {
@@ -91,6 +93,8 @@ function ViewContent({ view }: { view: ViewId }) {
       return <SearchView />;
     case "licenses":
       return <LicensesView />;
+    case "dailyreport":
+      return <DailyReportView />;
     default:
       return <Placeholder view={view} />;
   }

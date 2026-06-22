@@ -16,7 +16,8 @@ export type ViewId =
   | "knowledge"
   | "canvas"
   | "search"
-  | "licenses";
+  | "licenses"
+  | "dailyreport";
 
 export interface User {
   id: string;
@@ -273,6 +274,67 @@ export interface KnowledgeArticle {
   pinned: boolean;
 }
 
+export interface DailyReportSafetyItem {
+  who: string;
+  toWhom: string;
+  status: string;
+}
+
+export interface DailyReportAttendee {
+  name: string;
+  jobType: string;
+  present: boolean;
+  startTime: string;
+  endTime: string;
+}
+
+export interface DailyReportSubcontractor {
+  company: string;
+  jobType: string;
+  workers: number;
+  startTime: string;
+  endTime: string;
+}
+
+export interface DailyReportEquipment {
+  name: string;
+  count: number;
+  fuel: number;
+}
+
+export interface DailyReportMaterial {
+  name: string;
+  type: string;
+  receivedToday: number;
+  receivedTotal: number;
+  usedToday: number;
+  usedTotal: number;
+  remaining: number;
+}
+
+export interface DailyReport {
+  id: string;
+  workspaceId: string;
+  meetingDate: string;
+  implementDate: string;
+  weather: string;
+  plannedWork: string;
+  actualWork: string;
+  safetyItems: DailyReportSafetyItem[];
+  attendees: DailyReportAttendee[];
+  subcontractors: DailyReportSubcontractor[];
+  equipment: DailyReportEquipment[];
+  materials: DailyReportMaterial[];
+  progressRate: number;
+  plannedDays: number;
+  remainingDays: number;
+  notes: string;
+  approvals: Record<string, string>;
+  createdBy: string;
+  createdAt: string;
+  status: "draft" | "submitted" | "approved";
+}
+
 export interface WorkSpace {
   id: string;
   name: string;
@@ -308,6 +370,7 @@ export interface AppState {
   employeeCertifications: EmployeeCertification[];
   knowledge: KnowledgeArticle[];
   workspaces: WorkSpace[];
+  dailyReports: DailyReport[];
   uiPrefs: UiPrefs;
   bulletinSubscriptions?: string[];
 }
