@@ -6,6 +6,7 @@ import Modal from "@/components/Modal";
 import { useApp } from "@/lib/context";
 import type { KnowledgeArticle } from "@/lib/types";
 import { uid, userName } from "@/lib/utils";
+import { useIsMobile } from "@/lib/useIsMobile";
 
 const EMPTY_FORM = {
   title: "",
@@ -28,9 +29,11 @@ export default function KnowledgeView() {
   const me = currentUser ?? state.currentUser;
   const myName = userName(state, me);
 
+  const isMobile = useIsMobile();
   const [selectedCategory, setSelectedCategory] = useState("すべて");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [mobileView, setMobileView] = useState<"list" | "detail">("list");
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -137,6 +140,133 @@ export default function KnowledgeView() {
         a.id === id ? { ...a, pinned: !a.pinned } : a,
       ),
     }));
+  }
+
+  if (isMobile) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+        <AnimatePresence mode="wait">
+          {mobileView === "detail" && selectedArticle ? (
+            <motion.div
+              key="mobile-detail"
+              initial={{ opacity: 0, x: 40 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 40 }}
+              transition={{ duration: 0.18 }}
+              style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: "1px solid var(--line)", flexShrink: 0, background: "var(--panel)" }}>
+                <button onClick={() => setMobileView("list")} style={{ border: 0, background: "transparent", color: "var(--blue)", fontSize: 15, cursor: "pointer", padding: "4px 0" }}>← 一覧</button>
+                <span style={{ flex: 1, fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedArticle.title}</span>
+                <button onClick={() => openEdit(selectedArticle)} style={{ border: "1px solid var(--line)", background: "transparent", color: "var(--text)", borderRadius: 6, padding: "5px 12px", cursor: "pointer", fontSize: 12 }}>編集</button>
+              </div>
+              <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px" }}>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 10, alignItems: "center" }}>
+                  {selectedArticle.pinned && <span style={{ color: "var(--orange)", fontSize: 13 }}>📌</span>}
+                  <span style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "var(--soft)", color: "var(--muted)", border: "1px solid var(--line)" }}>{selectedArticle.category}</span>
+                  <span className="muted-text" style={{ fontSize: 11 }}>更新 {selectedArticle.updatedAt}</span>
+                  <span className="muted-text" style={{ fontSize: 11 }}>著者: {selectedArticle.author}</span>
+                </div>
+                {selectedArticle.tags.length > 0 && (
+                  <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginBottom: 14 }}>
+                    {selectedArticle.tags.map((tag) => (
+                      <span key={tag} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: "rgba(59,130,246,0.1)", color: "var(--blue)" }}>#{tag}</span>
+                    ))}
+                  </div>
+                )}
+                <div style={{ height: 1, background: "var(--line)", marginBottom: 14 }} />
+                <pre style={{ whiteSpace: "pre-wrap", fontFamily: "inherit", fontSize: 14, lineHeight: 1.8, color: "var(--text)", margin: 0 }}>{selectedArticle.body}</pre>
+                <div style={{ display: "flex", gap: 8, marginTop: 24, paddingTop: 14, borderTop: "1px solid var(--line)" }}>
+                  <button onClick={() => togglePin(selectedArticle.id)} style={{ flex: 1, padding: "9px 0", border: "1px solid var(--line)", borderRadius: 8, background: selectedArticle.pinned ? "var(--orange)" : "transparent", color: selectedArticle.pinned ? "#fff" : "var(--text)", cursor: "pointer", fontSize: 13 }}>{selectedArticle.pinned ? "📌 解除" : "📌 固定"}</button>
+                  <button onClick={() => { deleteArticle(selectedArticle.id); setMobileView("list"); }} style={{ padding: "9px 18px", border: "1px solid var(--line)", borderRadius: 8, background: "transparent", color: "#a33", cursor: "pointer", fontSize: 13 }}>削除</button>
+                </div>
+              </div>
+            </motion.div>
+          ) : (
+            <motion.div
+              key="mobile-list"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.18 }}
+              style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}
+            >
+              <div style={{ flexShrink: 0, borderBottom: "1px solid var(--line)", background: "var(--panel)" }}>
+                <div style={{ padding: "10px 12px 6px", display: "flex", gap: 8 }}>
+                  <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="記事を検索..." style={{ flex: 1, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--soft)", color: "var(--text)", fontSize: 13 }} />
+                  <button onClick={openCreate} style={{ padding: "7px 14px", background: "var(--blue)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>+ 新規</button>
+                </div>
+                <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "0 12px 10px", scrollbarWidth: "none" }}>
+                  {categories.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={() => setSelectedCategory(cat)}
+                      style={{
+                        flexShrink: 0,
+                        padding: "5px 12px",
+                        borderRadius: 20,
+                        border: selectedCategory === cat ? "none" : "1px solid var(--line)",
+                        background: selectedCategory === cat ? "var(--blue)" : "var(--soft)",
+                        color: selectedCategory === cat ? "#fff" : "var(--text)",
+                        fontSize: 12,
+                        fontWeight: selectedCategory === cat ? 600 : 400,
+                        cursor: "pointer",
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {cat}
+                      <span style={{ marginLeft: 5, fontSize: 10, opacity: 0.8 }}>
+                        {cat === "すべて" ? articles.length : (categoryCounts[cat] ?? 0)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div style={{ flex: 1, overflowY: "auto" }}>
+                {filtered.length === 0 && <div className="muted-text" style={{ padding: 24, textAlign: "center", fontSize: 13 }}>記事がありません</div>}
+                {filtered.map((article) => (
+                  <motion.div
+                    key={article.id}
+                    initial={{ opacity: 0, y: 4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    onClick={() => { setSelectedId(article.id); setMobileView("detail"); }}
+                    style={{ padding: "13px 14px", borderBottom: "1px solid var(--line)", cursor: "pointer" }}
+                  >
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
+                      {article.pinned && <span style={{ color: "var(--orange)", fontSize: 12 }}>📌</span>}
+                      <span style={{ fontWeight: 600, fontSize: 14, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{article.title}</span>
+                      <span style={{ color: "var(--muted)", fontSize: 12 }}>›</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                      <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 10, background: "var(--soft)", color: "var(--muted)", border: "1px solid var(--line)" }}>{article.category}</span>
+                      <span className="muted-text" style={{ fontSize: 11 }}>{article.updatedAt}</span>
+                    </div>
+                    {article.tags.length > 0 && (
+                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
+                        {article.tags.slice(0, 3).map((tag) => <span key={tag} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 10, background: "rgba(59,130,246,0.1)", color: "var(--blue)" }}>#{tag}</span>)}
+                      </div>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingId ? "記事を編集" : "新規記事を作成"} width={560}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <div><label style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>タイトル</label><input value={form.title} onChange={(e) => setForm((prev) => ({ ...prev, title: e.target.value }))} placeholder="記事タイトル" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--soft)", color: "var(--text)", fontSize: 14, boxSizing: "border-box" }} /></div>
+            <div><label style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>カテゴリ</label><input value={form.category} onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))} placeholder="例: FAQ / テンプレート" list="knowledge-categories-m" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--soft)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} /><datalist id="knowledge-categories-m">{categories.filter((c) => c !== "すべて").map((c) => <option key={c} value={c} />)}</datalist></div>
+            <div><label style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>タグ（カンマ区切り）</label><input value={form.tags} onChange={(e) => setForm((prev) => ({ ...prev, tags: e.target.value }))} placeholder="例: FAQ, ヘルプ" style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--soft)", color: "var(--text)", fontSize: 13, boxSizing: "border-box" }} /></div>
+            <div><label style={{ display: "block", fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>本文</label><textarea value={form.body} onChange={(e) => setForm((prev) => ({ ...prev, body: e.target.value }))} rows={8} style={{ width: "100%", padding: "8px 10px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--soft)", color: "var(--text)", fontSize: 13, lineHeight: 1.6, resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }} /></div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button onClick={() => setModalOpen(false)} style={{ padding: "8px 18px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--text)", cursor: "pointer", fontSize: 13 }}>キャンセル</button>
+              <button onClick={saveArticle} disabled={!form.title.trim()} style={{ padding: "8px 20px", border: "none", borderRadius: 6, background: form.title.trim() ? "var(--blue)" : "var(--line)", color: form.title.trim() ? "#fff" : "var(--muted)", cursor: form.title.trim() ? "pointer" : "not-allowed", fontSize: 13, fontWeight: 600 }}>保存</button>
+            </div>
+          </div>
+        </Modal>
+      </div>
+    );
   }
 
   return (
