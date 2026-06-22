@@ -4,10 +4,18 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useApp } from "@/lib/context";
 import { uid } from "@/lib/utils";
-import { DailyReport, DailyReportAttendee, DailyReportSubcontractor, DailyReportEquipment, DailyReportMaterial, DailyReportSafetyItem } from "@/lib/types";
+import {
+  DailyReport,
+  DailyReportAttendee,
+  DailyReportSubcontractor,
+  DailyReportEquipment,
+  DailyReportMaterial,
+  DailyReportSafetyItem,
+} from "@/lib/types";
 
 const WEATHER_OPTIONS = ["晴れ", "曇り", "雨", "雪", "晴れ時々曇り", "曇り時々雨"];
 const APPROVAL_ROLES = ["社長", "工事部部長", "工事部次長", "統括所長", "工事担当者"];
+const STATUS_FILTERS = ["すべて", "下書き", "提出済", "承認済"] as const;
 
 const emptyForm = (): Omit<DailyReport, "id" | "createdBy" | "createdAt"> => ({
   workspaceId: "",
@@ -29,6 +37,7 @@ const emptyForm = (): Omit<DailyReport, "id" | "createdBy" | "createdAt"> => ({
   status: "draft",
 });
 
+/* ── helpers ── */
 function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
     <div style={{ fontSize: 11, fontWeight: 600, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.06em", borderBottom: "1px solid var(--line)", paddingBottom: 6, marginBottom: 10 }}>
@@ -37,549 +46,814 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Input({ value, onChange, placeholder, style }: { value: string | number; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties }) {
+function Inp({ value, onChange, placeholder, style }: { value: string | number; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties }) {
   return (
-    <input
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder={placeholder}
-      style={{ width: "100%", padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12, ...style }}
-    />
+    <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+      style={{ width: "100%", padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12, ...style }} />
   );
 }
 
-function Badge({ label, color }: { label: string; color: string }) {
-  return <span className={`status ${color}`}>{label}</span>;
+function statusLabel(s: DailyReport["status"]) {
+  return s === "approved" ? "承認済" : s === "submitted" ? "提出済" : "下書き";
+}
+function statusColor(s: DailyReport["status"]) {
+  return s === "approved" ? "green" : s === "submitted" ? "blue" : "yellow";
 }
 
-function statusBadge(status: DailyReport["status"]) {
-  if (status === "approved") return <Badge label="承認済" color="green" />;
-  if (status === "submitted") return <Badge label="提出済" color="blue" />;
-  return <Badge label="下書き" color="yellow" />;
+const WEATHER_ICON: Record<string, string> = {
+  "晴れ": "☀️", "曇り": "☁️", "雨": "🌧️", "雪": "❄️", "晴れ時々曲り": "⛅", "曇り時々雨": "🌦️",
+};
+
+/* ══════════════════════════════════════════
+   印刷用レイアウト（window.print()）
+══════════════════════════════════════════ */
+function PrintView({ r, wsName, onClose }: { r: DailyReport; wsName: string; onClose: () => void }) {
+  return (
+    <div>
+      {/* 画面上の操作バー（印刷では非表示） */}
+      <div className="no-print" style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+        <button className="ghost-button" onClick={onClose}>← 戻る</button>
+        <button className="ghost-button" onClick={() => window.print()}
+          style={{ background: "var(--blue)", color: "#fff", borderColor: "var(--blue)" }}>
+          印刷 / PDF保存
+        </button>
+      </div>
+
+      {/* 印刷本体 */}
+      <div className="print-body" style={{ fontFamily: "sans-serif", fontSize: 11, color: "#000", maxWidth: 900, margin: "0 auto" }}>
+        {/* タイトル */}
+        <div style={{ textAlign: "center", marginBottom: 10 }}>
+          <h1 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>工事打合簿（品質・安全日誌）</h1>
+        </div>
+
+        {/* 基本情報 */}
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+          <tbody>
+            <tr>
+              <Td label w={80}>工事名</Td>
+              <Td colSpan={3}>{wsName}</Td>
+            </tr>
+            <tr>
+              <Td label w={80}>打合日</Td><Td>{r.meetingDate}</Td>
+              <Td label w={80}>実施日</Td><Td>{r.implementDate}</Td>
+            </tr>
+            <tr>
+              <Td label w={80}>天候</Td><Td>{r.weather}</Td>
+              <Td label w={80}>進捗率</Td><Td>{r.progressRate}%（計画 {r.plannedDays}日 / 残 {r.remainingDays}日）</Td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 作業内容 */}
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+          <tbody>
+            <tr>
+              <Td label w="50%">作業予定内容</Td>
+              <Td label w="50%">作業実施内容</Td>
+            </tr>
+            <tr>
+              <Td h={60} pre>{r.plannedWork}</Td>
+              <Td h={60} pre>{r.actualWork}</Td>
+            </tr>
+          </tbody>
+        </table>
+
+        {/* 品質安全指示事項 */}
+        {r.safetyItems.some(s => s.who) && (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+            <thead>
+              <tr><Td label colSpan={3}>品質安全指示事項</Td></tr>
+              <tr><Td label>誰が</Td><Td label>誰に</Td><Td label>確認及び是正状況</Td></tr>
+            </thead>
+            <tbody>
+              {r.safetyItems.filter(s => s.who).map((s, i) => (
+                <tr key={i}><Td>{s.who}</Td><Td>{s.toWhom}</Td><Td>{s.status}</Td></tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* 社員出面表 */}
+        {r.attendees.some(a => a.name) && (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+            <thead>
+              <tr><Td label colSpan={4}>社員出面表</Td></tr>
+              <tr><Td label>氏名</Td><Td label>職種</Td><Td label>出欠</Td><Td label>就業時間</Td></tr>
+            </thead>
+            <tbody>
+              {r.attendees.filter(a => a.name).map((a, i) => (
+                <tr key={i}>
+                  <Td>{a.name}</Td><Td>{a.jobType}</Td>
+                  <Td>{a.present ? "出" : "欠"}</Td>
+                  <Td>{a.startTime} ～ {a.endTime}</Td>
+                </tr>
+              ))}
+              <tr>
+                <Td label colSpan={2}>日計</Td>
+                <Td colSpan={2}>{r.attendees.filter(a => a.present).length} 名</Td>
+              </tr>
+            </tbody>
+          </table>
+        )}
+
+        {/* 協力業者 */}
+        {r.subcontractors.some(s => s.company) && (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+            <thead>
+              <tr><Td label colSpan={4}>協力業者就業表</Td></tr>
+              <tr><Td label>業者名</Td><Td label>工種</Td><Td label>実施人員</Td><Td label>就業時間</Td></tr>
+            </thead>
+            <tbody>
+              {r.subcontractors.filter(s => s.company).map((s, i) => (
+                <tr key={i}>
+                  <Td>{s.company}</Td><Td>{s.jobType}</Td>
+                  <Td>{s.workers}名</Td><Td>{s.startTime} ～ {s.endTime}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* 使用機械 */}
+        {r.equipment.some(e => e.name) && (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+            <thead>
+              <tr><Td label colSpan={3}>使用機械</Td></tr>
+              <tr><Td label>機械名称</Td><Td label>台数</Td><Td label>給油量(ℓ)</Td></tr>
+            </thead>
+            <tbody>
+              {r.equipment.filter(e => e.name).map((e, i) => (
+                <tr key={i}><Td>{e.name}</Td><Td>{e.count}台</Td><Td>{e.fuel}</Td></tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* 使用資材 */}
+        {r.materials.some(m => m.name) && (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+            <thead>
+              <tr><Td label colSpan={7}>使用資材</Td></tr>
+              <tr>
+                <Td label>資材名称</Td><Td label>種類</Td>
+                <Td label>受入(本日)</Td><Td label>受入(累計)</Td>
+                <Td label>使用(本日)</Td><Td label>使用(累計)</Td><Td label>残量</Td>
+              </tr>
+            </thead>
+            <tbody>
+              {r.materials.filter(m => m.name).map((m, i) => (
+                <tr key={i}>
+                  <Td>{m.name}</Td><Td>{m.type}</Td>
+                  <Td align="right">{m.receivedToday}</Td><Td align="right">{m.receivedTotal}</Td>
+                  <Td align="right">{m.usedToday}</Td><Td align="right">{m.usedTotal}</Td>
+                  <Td align="right">{m.remaining}</Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+
+        {/* 特記事項 */}
+        {r.notes && (
+          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+            <tbody>
+              <tr><Td label>報告事項・特記事項</Td></tr>
+              <tr><Td h={50} pre>{r.notes}</Td></tr>
+            </tbody>
+          </table>
+        )}
+
+        {/* 承認欄 */}
+        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
+          <thead>
+            <tr><Td label colSpan={5}>承認欄</Td></tr>
+            <tr>{APPROVAL_ROLES.map(role => <Td key={role} label>{role}</Td>)}</tr>
+          </thead>
+          <tbody>
+            <tr>
+              {APPROVAL_ROLES.map(role => (
+                <td key={role} style={{ border: "1px solid #333", padding: 4, height: 36, textAlign: "center", fontSize: 18 }}>
+                  {r.approvals?.[role] ? "✓" : ""}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          body { margin: 0; }
+          .print-body { max-width: 100% !important; }
+        }
+      `}</style>
+    </div>
+  );
 }
 
+function Td({ children, label, colSpan, w, h, pre, align }: {
+  children?: React.ReactNode; label?: boolean; colSpan?: number;
+  w?: number | string; h?: number; pre?: boolean; align?: string;
+}) {
+  return (
+    <td colSpan={colSpan} style={{
+      border: "1px solid #333",
+      padding: "3px 6px",
+      background: label ? "#e8e8e8" : "#fff",
+      fontWeight: label ? 600 : "normal",
+      width: w,
+      height: h,
+      verticalAlign: "top",
+      whiteSpace: pre ? "pre-wrap" : undefined,
+      textAlign: (align as React.CSSProperties["textAlign"]) ?? (label ? "center" : "left"),
+      fontSize: 11,
+    }}>
+      {children}
+    </td>
+  );
+}
+
+/* ══════════════════════════════════════════
+   詳細モーダル（画面内表示）
+══════════════════════════════════════════ */
+function DetailPane({ r, wsName, onClose, onEdit, onApprove, onDelete }: {
+  r: DailyReport; wsName: string;
+  onClose: () => void;
+  onEdit: () => void;
+  onApprove: (role: string) => void;
+  onDelete: () => void;
+}) {
+  const [printing, setPrinting] = useState(false);
+  if (printing) return <PrintView r={r} wsName={wsName} onClose={() => setPrinting(false)} />;
+
+  return (
+    <div style={{ maxWidth: 820, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <button className="ghost-button" onClick={onClose} style={{ fontSize: 12 }}>← 一覧</button>
+          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{wsName} — 工事打合簿</h2>
+          <span className={`status ${statusColor(r.status)}`}>{statusLabel(r.status)}</span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="ghost-button" onClick={() => setPrinting(true)} style={{ fontSize: 12 }}>🖨 印刷・PDF</button>
+          <button className="ghost-button" onClick={onEdit} style={{ fontSize: 12 }}>編集</button>
+          <button className="ghost-button" onClick={() => { if (confirm("削除しますか？")) onDelete(); }}
+            style={{ fontSize: 12, color: "var(--red)" }}>削除</button>
+        </div>
+      </div>
+
+      {/* 基本情報 */}
+      <div className="panel" style={{ marginBottom: 12 }}>
+        <SectionTitle>基本情報</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 14, marginBottom: 12 }}>
+          {[["打合日", r.meetingDate], ["実施日", r.implementDate], ["天候", `${WEATHER_ICON[r.weather] ?? ""} ${r.weather}`], ["進捗率", `${r.progressRate}%`]].map(([l, v]) => (
+            <div key={l}><div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>{l}</div><div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div></div>
+          ))}
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 10 }}>
+          {[["作業予定内容", r.plannedWork], ["作業実施内容", r.actualWork]].map(([l, v]) => (
+            <div key={l}>
+              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>{l}</div>
+              <div style={{ fontSize: 12, whiteSpace: "pre-wrap", background: "var(--soft)", padding: "8px 10px", borderRadius: 6, minHeight: 52 }}>{v || "—"}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>計画 {r.plannedDays}日 / 残 {r.remainingDays}日</div>
+        <div style={{ height: 8, background: "var(--line)", borderRadius: 4, overflow: "hidden" }}>
+          <div style={{ height: "100%", width: `${Math.min(r.progressRate, 100)}%`, background: "var(--blue)", borderRadius: 4, transition: "width 0.5s" }} />
+        </div>
+      </div>
+
+      {/* 品質安全 */}
+      {r.safetyItems.some(s => s.who) && (
+        <div className="panel" style={{ marginBottom: 12 }}>
+          <SectionTitle>品質安全指示事項</SectionTitle>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead><tr style={{ background: "var(--soft)" }}>
+              {["誰が", "誰に", "確認及び是正状況"].map(h => <th key={h} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 600, fontSize: 11 }}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {r.safetyItems.filter(s => s.who).map((s, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
+                  <td style={{ padding: "7px 10px" }}>{s.who}</td><td style={{ padding: "7px 10px" }}>{s.toWhom}</td><td style={{ padding: "7px 10px" }}>{s.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 社員出面表 */}
+      {r.attendees.some(a => a.name) && (
+        <div className="panel" style={{ marginBottom: 12 }}>
+          <SectionTitle>社員出面表</SectionTitle>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead><tr style={{ background: "var(--soft)" }}>
+              {["氏名", "職種", "出欠", "就業時間"].map(h => <th key={h} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 600, fontSize: 11 }}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {r.attendees.filter(a => a.name).map((a, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
+                  <td style={{ padding: "7px 10px" }}>{a.name}</td><td style={{ padding: "7px 10px" }}>{a.jobType}</td>
+                  <td style={{ padding: "7px 10px" }}><span className={`status ${a.present ? "green" : "red"}`}>{a.present ? "出" : "欠"}</span></td>
+                  <td style={{ padding: "7px 10px" }}>{a.startTime} ～ {a.endTime}</td>
+                </tr>
+              ))}
+              <tr style={{ background: "var(--soft)", fontWeight: 600 }}>
+                <td colSpan={2} style={{ padding: "6px 10px", fontSize: 11 }}>日計</td>
+                <td colSpan={2} style={{ padding: "6px 10px" }}>{r.attendees.filter(a => a.present).length} 名</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 協力業者 */}
+      {r.subcontractors.some(s => s.company) && (
+        <div className="panel" style={{ marginBottom: 12 }}>
+          <SectionTitle>協力業者就業表</SectionTitle>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead><tr style={{ background: "var(--soft)" }}>
+              {["業者名", "工種", "実施人員", "就業時間"].map(h => <th key={h} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 600, fontSize: 11 }}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {r.subcontractors.filter(s => s.company).map((s, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
+                  <td style={{ padding: "7px 10px" }}>{s.company}</td><td style={{ padding: "7px 10px" }}>{s.jobType}</td>
+                  <td style={{ padding: "7px 10px" }}>{s.workers}名</td><td style={{ padding: "7px 10px" }}>{s.startTime} ～ {s.endTime}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 使用機械 */}
+      {r.equipment.some(e => e.name) && (
+        <div className="panel" style={{ marginBottom: 12 }}>
+          <SectionTitle>使用機械</SectionTitle>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead><tr style={{ background: "var(--soft)" }}>
+              {["機械名称", "台数", "給油量(ℓ)"].map(h => <th key={h} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 600, fontSize: 11 }}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {r.equipment.filter(e => e.name).map((e, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
+                  <td style={{ padding: "7px 10px" }}>{e.name}</td><td style={{ padding: "7px 10px" }}>{e.count}台</td><td style={{ padding: "7px 10px" }}>{e.fuel}ℓ</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 使用資材 */}
+      {r.materials.some(m => m.name) && (
+        <div className="panel" style={{ marginBottom: 12 }}>
+          <SectionTitle>使用資材</SectionTitle>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead><tr style={{ background: "var(--soft)" }}>
+              {["資材名称", "種類", "受入(本日)", "受入(累計)", "使用(本日)", "使用(累計)", "残量"].map(h => <th key={h} style={{ padding: "5px 8px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 600, fontSize: 10 }}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {r.materials.filter(m => m.name).map((m, i) => (
+                <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
+                  <td style={{ padding: "6px 8px" }}>{m.name}</td><td style={{ padding: "6px 8px" }}>{m.type}</td>
+                  {[m.receivedToday, m.receivedTotal, m.usedToday, m.usedTotal, m.remaining].map((v, j) => (
+                    <td key={j} style={{ padding: "6px 8px", textAlign: "right" }}>{v}</td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* 特記事項 */}
+      {r.notes && (
+        <div className="panel" style={{ marginBottom: 12 }}>
+          <SectionTitle>報告事項・特記事項</SectionTitle>
+          <div style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>{r.notes}</div>
+        </div>
+      )}
+
+      {/* 承認欄 */}
+      <div className="panel" style={{ marginBottom: 12 }}>
+        <SectionTitle>承認欄</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10 }}>
+          {APPROVAL_ROLES.map(role => {
+            const approved = r.approvals?.[role];
+            return (
+              <div key={role} style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>{role}</div>
+                {approved
+                  ? <div style={{ fontSize: 20, color: "var(--blue)" }}>✓</div>
+                  : <button className="ghost-button" onClick={() => onApprove(role)} style={{ fontSize: 11, padding: "4px 10px" }}>承認する</button>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   入力フォーム
+══════════════════════════════════════════ */
+function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
+  initial: Partial<DailyReport>;
+  workspaces: { id: string; name: string }[];
+  currentUser: string | null;
+  onSave: (r: DailyReport, status: DailyReport["status"]) => void;
+  onCancel: () => void;
+}) {
+  const editing = "id" in initial && initial.id;
+  const [form, setForm] = useState<Omit<DailyReport, "id" | "createdBy" | "createdAt">>(() => ({
+    ...emptyForm(), ...initial,
+  }));
+  function setF(p: Partial<typeof form>) { setForm(prev => ({ ...prev, ...p })); }
+  function addRow<T>(f: keyof typeof form, empty: T) { setForm(prev => ({ ...prev, [f]: [...(prev[f] as T[]), empty] })); }
+  function updRow<T>(f: keyof typeof form, i: number, p: Partial<T>) {
+    setForm(prev => { const a = [...(prev[f] as T[])]; a[i] = { ...a[i], ...p }; return { ...prev, [f]: a }; });
+  }
+  function delRow(f: keyof typeof form, i: number) {
+    setForm(prev => { const a = [...(prev[f] as unknown[])]; a.splice(i, 1); return { ...prev, [f]: a }; });
+  }
+  function save(status: DailyReport["status"]) {
+    const now = new Date().toISOString().slice(0, 10);
+    const r: DailyReport = editing
+      ? { ...(initial as DailyReport), ...form, status }
+      : { ...form, id: uid("dr"), createdBy: currentUser ?? "", createdAt: now, status };
+    onSave(r, status);
+  }
+
+  const selStyle: React.CSSProperties = { width: "100%", padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12 };
+  const taStyle: React.CSSProperties = { width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12, resize: "vertical" };
+  const delBtn = (f: keyof typeof form, i: number) => (
+    <button onClick={() => delRow(f, i)} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 12 }}>✕</button>
+  );
+
+  return (
+    <div style={{ maxWidth: 860, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+        <button className="ghost-button" onClick={onCancel} style={{ fontSize: 12 }}>← 一覧</button>
+        <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{editing ? "日報を編集" : "新規日報作成"}</h2>
+      </div>
+
+      {/* 基本情報 */}
+      <div className="panel" style={{ marginBottom: 14 }}>
+        <SectionTitle>基本情報</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
+          <div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>工事名</div>
+            <select value={form.workspaceId} onChange={e => setF({ workspaceId: e.target.value })} style={selStyle}>
+              <option value="">選択してください</option>
+              {workspaces.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>打合日</div>
+            <Inp value={form.meetingDate} onChange={v => setF({ meetingDate: v })} style={{ fontFamily: "monospace" }} />
+          </div>
+          <div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>実施日</div>
+            <Inp value={form.implementDate} onChange={v => setF({ implementDate: v })} style={{ fontFamily: "monospace" }} />
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 10 }}>
+          <div>
+            <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>天候</div>
+            <select value={form.weather} onChange={e => setF({ weather: e.target.value })} style={selStyle}>
+              {WEATHER_OPTIONS.map(w => <option key={w} value={w}>{w}</option>)}
+            </select>
+          </div>
+          <div><div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>進捗率 (%)</div><Inp value={form.progressRate} onChange={v => setF({ progressRate: Number(v) })} /></div>
+          <div><div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>計画日数</div><Inp value={form.plannedDays} onChange={v => setF({ plannedDays: Number(v) })} /></div>
+          <div><div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>計画日数残</div><Inp value={form.remainingDays} onChange={v => setF({ remainingDays: Number(v) })} /></div>
+        </div>
+      </div>
+
+      {/* 作業内容 */}
+      <div className="panel" style={{ marginBottom: 14 }}>
+        <SectionTitle>作業内容</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+          <div><div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>作業予定内容</div><textarea value={form.plannedWork} onChange={e => setF({ plannedWork: e.target.value })} rows={4} style={taStyle} /></div>
+          <div><div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>作業実施内容</div><textarea value={form.actualWork} onChange={e => setF({ actualWork: e.target.value })} rows={4} style={taStyle} /></div>
+        </div>
+      </div>
+
+      {/* 品質安全 */}
+      <div className="panel" style={{ marginBottom: 14 }}>
+        <SectionTitle>品質安全指示事項</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr auto", gap: 6, marginBottom: 6 }}>
+          {["誰が", "誰に", "確認及び是正状況", ""].map(h => <div key={h} style={{ fontSize: 11, color: "var(--muted)" }}>{h}</div>)}
+        </div>
+        {form.safetyItems.map((item, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr auto", gap: 6, marginBottom: 6 }}>
+            <Inp value={item.who} onChange={v => updRow<DailyReportSafetyItem>("safetyItems", i, { who: v })} placeholder="誰が" />
+            <Inp value={item.toWhom} onChange={v => updRow<DailyReportSafetyItem>("safetyItems", i, { toWhom: v })} placeholder="誰に" />
+            <Inp value={item.status} onChange={v => updRow<DailyReportSafetyItem>("safetyItems", i, { status: v })} placeholder="確認及び是正状況" />
+            {delBtn("safetyItems", i)}
+          </div>
+        ))}
+        <button className="ghost-button" onClick={() => addRow<DailyReportSafetyItem>("safetyItems", { who: "", toWhom: "", status: "" })} style={{ fontSize: 12 }}>＋ 行追加</button>
+      </div>
+
+      {/* 社員出面表 */}
+      <div className="panel" style={{ marginBottom: 14 }}>
+        <SectionTitle>社員出面表</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 60px 1fr 1fr auto", gap: 6, marginBottom: 4 }}>
+          {["氏名", "職種", "出欠", "開始", "終了", ""].map(h => <div key={h} style={{ fontSize: 11, color: "var(--muted)" }}>{h}</div>)}
+        </div>
+        {form.attendees.map((a, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 60px 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
+            <Inp value={a.name} onChange={v => updRow<DailyReportAttendee>("attendees", i, { name: v })} placeholder="氏名" />
+            <Inp value={a.jobType} onChange={v => updRow<DailyReportAttendee>("attendees", i, { jobType: v })} placeholder="職種" />
+            <select value={a.present ? "出" : "欠"} onChange={e => updRow<DailyReportAttendee>("attendees", i, { present: e.target.value === "出" })} style={{ ...selStyle, padding: "5px 4px" }}>
+              <option>出</option><option>欠</option>
+            </select>
+            <Inp value={a.startTime} onChange={v => updRow<DailyReportAttendee>("attendees", i, { startTime: v })} />
+            <Inp value={a.endTime} onChange={v => updRow<DailyReportAttendee>("attendees", i, { endTime: v })} />
+            {delBtn("attendees", i)}
+          </div>
+        ))}
+        <button className="ghost-button" onClick={() => addRow<DailyReportAttendee>("attendees", { name: "", jobType: "", present: true, startTime: "08:00", endTime: "17:00" })} style={{ fontSize: 12 }}>＋ 行追加</button>
+      </div>
+
+      {/* 協力業者 */}
+      <div className="panel" style={{ marginBottom: 14 }}>
+        <SectionTitle>協力業者就業表</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 60px 1fr 1fr auto", gap: 6, marginBottom: 4 }}>
+          {["業者名", "工種", "人員", "開始", "終了", ""].map(h => <div key={h} style={{ fontSize: 11, color: "var(--muted)" }}>{h}</div>)}
+        </div>
+        {form.subcontractors.map((s, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 60px 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
+            <Inp value={s.company} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { company: v })} placeholder="業者名" />
+            <Inp value={s.jobType} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { jobType: v })} placeholder="工種" />
+            <Inp value={s.workers} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { workers: Number(v) })} />
+            <Inp value={s.startTime} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { startTime: v })} />
+            <Inp value={s.endTime} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { endTime: v })} />
+            {delBtn("subcontractors", i)}
+          </div>
+        ))}
+        <button className="ghost-button" onClick={() => addRow<DailyReportSubcontractor>("subcontractors", { company: "", jobType: "", workers: 1, startTime: "08:00", endTime: "17:00" })} style={{ fontSize: 12 }}>＋ 行追加</button>
+      </div>
+
+      {/* 使用機械 */}
+      <div className="panel" style={{ marginBottom: 14 }}>
+        <SectionTitle>使用機械</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr 1fr auto", gap: 6, marginBottom: 4 }}>
+          {["機械名称", "台数", "給油量(ℓ)", ""].map(h => <div key={h} style={{ fontSize: 11, color: "var(--muted)" }}>{h}</div>)}
+        </div>
+        {form.equipment.map((e, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "3fr 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
+            <Inp value={e.name} onChange={v => updRow<DailyReportEquipment>("equipment", i, { name: v })} placeholder="機械名称" />
+            <Inp value={e.count} onChange={v => updRow<DailyReportEquipment>("equipment", i, { count: Number(v) })} />
+            <Inp value={e.fuel} onChange={v => updRow<DailyReportEquipment>("equipment", i, { fuel: Number(v) })} />
+            {delBtn("equipment", i)}
+          </div>
+        ))}
+        <button className="ghost-button" onClick={() => addRow<DailyReportEquipment>("equipment", { name: "", count: 1, fuel: 0 })} style={{ fontSize: 12 }}>＋ 行追加</button>
+      </div>
+
+      {/* 使用資材 */}
+      <div className="panel" style={{ marginBottom: 14 }}>
+        <SectionTitle>使用資材</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 4 }}>
+          {["資材名称", "種類", "受入(本日)", "受入(累計)", "使用(本日)", "使用(累計)", "残量", ""].map(h => <div key={h} style={{ fontSize: 10, color: "var(--muted)" }}>{h}</div>)}
+        </div>
+        {form.materials.map((m, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
+            <Inp value={m.name} onChange={v => updRow<DailyReportMaterial>("materials", i, { name: v })} placeholder="資材名称" />
+            <Inp value={m.type} onChange={v => updRow<DailyReportMaterial>("materials", i, { type: v })} placeholder="種類" />
+            <Inp value={m.receivedToday} onChange={v => updRow<DailyReportMaterial>("materials", i, { receivedToday: Number(v) })} />
+            <Inp value={m.receivedTotal} onChange={v => updRow<DailyReportMaterial>("materials", i, { receivedTotal: Number(v) })} />
+            <Inp value={m.usedToday} onChange={v => updRow<DailyReportMaterial>("materials", i, { usedToday: Number(v) })} />
+            <Inp value={m.usedTotal} onChange={v => updRow<DailyReportMaterial>("materials", i, { usedTotal: Number(v) })} />
+            <Inp value={m.remaining} onChange={v => updRow<DailyReportMaterial>("materials", i, { remaining: Number(v) })} />
+            {delBtn("materials", i)}
+          </div>
+        ))}
+        <button className="ghost-button" onClick={() => addRow<DailyReportMaterial>("materials", { name: "", type: "", receivedToday: 0, receivedTotal: 0, usedToday: 0, usedTotal: 0, remaining: 0 })} style={{ fontSize: 12 }}>＋ 行追加</button>
+      </div>
+
+      {/* 特記事項 */}
+      <div className="panel" style={{ marginBottom: 14 }}>
+        <SectionTitle>報告事項・特記事項</SectionTitle>
+        <textarea value={form.notes} onChange={e => setF({ notes: e.target.value })} rows={3} placeholder="特記事項・連絡事項" style={taStyle} />
+      </div>
+
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button className="ghost-button" onClick={onCancel}>キャンセル</button>
+        <button className="ghost-button" onClick={() => save("draft")}>下書き保存</button>
+        <motion.button className="ghost-button" whileTap={{ scale: 0.97 }} onClick={() => save("submitted")}
+          style={{ background: "var(--blue)", color: "#fff", borderColor: "var(--blue)" }}>提出</motion.button>
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════
+   メインビュー（カラム一覧 + 詳細/フォーム）
+══════════════════════════════════════════ */
 export default function DailyReportView() {
   const { state, updateState, currentUser } = useApp();
   const [mode, setMode] = useState<"list" | "form" | "detail">("list");
-  const [editing, setEditing] = useState<DailyReport | null>(null);
-  const [form, setForm] = useState(emptyForm());
+  const [editingReport, setEditingReport] = useState<DailyReport | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
 
-  const reports = (state.dailyReports ?? []).sort((a, b) => b.implementDate.localeCompare(a.implementDate));
-  const detail = reports.find((r) => r.id === detailId) ?? null;
+  // フィルター
+  const [wsFilter, setWsFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<typeof STATUS_FILTERS[number]>("すべて");
 
-  const workspaceName = (id: string) => state.workspaces?.find((w) => w.id === id)?.name ?? id;
+  const allReports = state.dailyReports ?? [];
+  const workspaces = state.workspaces ?? [];
 
-  function openNew() {
-    setEditing(null);
-    setForm(emptyForm());
-    setMode("form");
-  }
+  const filtered = allReports
+    .filter(r => wsFilter === "all" || r.workspaceId === wsFilter)
+    .filter(r => statusFilter === "すべて" || statusLabel(r.status) === statusFilter)
+    .sort((a, b) => b.implementDate.localeCompare(a.implementDate));
 
-  function openEdit(r: DailyReport) {
-    setEditing(r);
-    setForm({ ...r });
-    setMode("form");
-  }
+  const wsName = (id: string) => workspaces.find(w => w.id === id)?.name ?? id;
 
-  function openDetail(id: string) {
-    setDetailId(id);
-    setMode("detail");
-  }
+  // 工事別集計（左カラム）
+  const wsCounts = workspaces.map(ws => ({
+    ...ws,
+    total: allReports.filter(r => r.workspaceId === ws.id).length,
+    draft: allReports.filter(r => r.workspaceId === ws.id && r.status === "draft").length,
+  })).filter(w => w.total > 0);
 
-  function setF(partial: Partial<typeof form>) {
-    setForm((prev) => ({ ...prev, ...partial }));
-  }
-
-  function save(status: DailyReport["status"]) {
-    const now = new Date().toISOString().slice(0, 10);
-    if (editing) {
-      updateState((prev) => ({
-        ...prev,
-        dailyReports: (prev.dailyReports ?? []).map((r) =>
-          r.id === editing.id ? { ...editing, ...form, status } : r
-        ),
-      }));
-    } else {
-      const newReport: DailyReport = {
-        ...form,
-        id: uid("dr"),
-        createdBy: currentUser ?? state.currentUser,
-        createdAt: now,
-        status,
-      };
-      updateState((prev) => ({
-        ...prev,
-        dailyReports: [...(prev.dailyReports ?? []), newReport],
-      }));
-    }
+  function save(r: DailyReport) {
+    const exists = allReports.some(x => x.id === r.id);
+    updateState(prev => ({
+      ...prev,
+      dailyReports: exists
+        ? (prev.dailyReports ?? []).map(x => x.id === r.id ? r : x)
+        : [...(prev.dailyReports ?? []), r],
+    }));
     setMode("list");
   }
 
   function approve(id: string, role: string) {
-    updateState((prev) => ({
+    updateState(prev => ({
       ...prev,
-      dailyReports: (prev.dailyReports ?? []).map((r) =>
-        r.id === id
-          ? { ...r, approvals: { ...r.approvals, [role]: currentUser ?? state.currentUser }, status: "approved" as const }
-          : r
+      dailyReports: (prev.dailyReports ?? []).map(r =>
+        r.id === id ? { ...r, approvals: { ...r.approvals, [role]: currentUser ?? "" }, status: "approved" as const } : r
       ),
     }));
   }
 
   function deleteReport(id: string) {
-    updateState((prev) => ({
+    updateState(prev => ({
       ...prev,
-      dailyReports: (prev.dailyReports ?? []).filter((r) => r.id !== id),
+      dailyReports: (prev.dailyReports ?? []).filter(r => r.id !== id),
     }));
     setMode("list");
+    setDetailId(null);
   }
 
-  function addRow<T>(field: keyof typeof form, empty: T) {
-    setForm((prev) => ({ ...prev, [field]: [...(prev[field] as T[]), empty] }));
-  }
-
-  function updateRow<T>(field: keyof typeof form, idx: number, patch: Partial<T>) {
-    setForm((prev) => {
-      const arr = [...(prev[field] as T[])];
-      arr[idx] = { ...arr[idx], ...patch };
-      return { ...prev, [field]: arr };
-    });
-  }
-
-  function removeRow(field: keyof typeof form, idx: number) {
-    setForm((prev) => {
-      const arr = [...(prev[field] as unknown[])];
-      arr.splice(idx, 1);
-      return { ...prev, [field]: arr };
-    });
-  }
+  const detail = allReports.find(r => r.id === detailId) ?? null;
 
   if (mode === "form") {
     return (
-      <div style={{ maxWidth: 860, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
-          <button className="ghost-button" onClick={() => setMode("list")} style={{ fontSize: 12 }}>← 一覧</button>
-          <h2 style={{ fontSize: 16, fontWeight: 600 }}>{editing ? "日報を編集" : "新規日報作成"}</h2>
-        </div>
-
-        {/* 基本情報 */}
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <SectionTitle>基本情報</SectionTitle>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10, marginBottom: 10 }}>
-            <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>工事名</div>
-              <select value={form.workspaceId} onChange={(e) => setF({ workspaceId: e.target.value })} style={{ width: "100%", padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12 }}>
-                <option value="">選択してください</option>
-                {(state.workspaces ?? []).map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>打合日</div>
-              <Input value={form.meetingDate} onChange={(v) => setF({ meetingDate: v })} style={{ fontFamily: "monospace" }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>実施日</div>
-              <Input value={form.implementDate} onChange={(v) => setF({ implementDate: v })} style={{ fontFamily: "monospace" }} />
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 10 }}>
-            <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>天候</div>
-              <select value={form.weather} onChange={(e) => setF({ weather: e.target.value })} style={{ width: "100%", padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12 }}>
-                {WEATHER_OPTIONS.map((w) => <option key={w} value={w}>{w}</option>)}
-              </select>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
-              <div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>進捗率 (%)</div>
-                <Input value={form.progressRate} onChange={(v) => setF({ progressRate: Number(v) })} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>計画日数</div>
-                <Input value={form.plannedDays} onChange={(v) => setF({ plannedDays: Number(v) })} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>計画日数残</div>
-                <Input value={form.remainingDays} onChange={(v) => setF({ remainingDays: Number(v) })} />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 作業内容 */}
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <SectionTitle>作業内容</SectionTitle>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-            <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>作業予定内容</div>
-              <textarea value={form.plannedWork} onChange={(e) => setF({ plannedWork: e.target.value })} rows={4} style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12, resize: "vertical" }} />
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 3 }}>作業実施内容</div>
-              <textarea value={form.actualWork} onChange={(e) => setF({ actualWork: e.target.value })} rows={4} style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12, resize: "vertical" }} />
-            </div>
-          </div>
-        </div>
-
-        {/* 品質安全指示事項 */}
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <SectionTitle>品質安全指示事項</SectionTitle>
-          {form.safetyItems.map((item, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 1fr 2fr auto", gap: 8, marginBottom: 6 }}>
-              <Input value={item.who} onChange={(v) => updateRow<DailyReportSafetyItem>("safetyItems", i, { who: v })} placeholder="誰が" />
-              <Input value={item.toWhom} onChange={(v) => updateRow<DailyReportSafetyItem>("safetyItems", i, { toWhom: v })} placeholder="誰に" />
-              <Input value={item.status} onChange={(v) => updateRow<DailyReportSafetyItem>("safetyItems", i, { status: v })} placeholder="確認及び是正状況" />
-              <button onClick={() => removeRow("safetyItems", i)} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 12 }}>✕</button>
-            </div>
-          ))}
-          <button className="ghost-button" onClick={() => addRow<DailyReportSafetyItem>("safetyItems", { who: "", toWhom: "", status: "" })} style={{ fontSize: 12, marginTop: 4 }}>＋ 行追加</button>
-        </div>
-
-        {/* 社員出面表 */}
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <SectionTitle>社員出面表</SectionTitle>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 60px 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
-            {["氏名", "職種", "出欠", "開始", "終了", ""].map((h) => <div key={h} style={{ fontSize: 11, color: "var(--muted)" }}>{h}</div>)}
-          </div>
-          {form.attendees.map((a, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 60px 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
-              <Input value={a.name} onChange={(v) => updateRow<DailyReportAttendee>("attendees", i, { name: v })} placeholder="氏名" />
-              <Input value={a.jobType} onChange={(v) => updateRow<DailyReportAttendee>("attendees", i, { jobType: v })} placeholder="職種" />
-              <select value={a.present ? "出" : "欠"} onChange={(e) => updateRow<DailyReportAttendee>("attendees", i, { present: e.target.value === "出" })} style={{ padding: "5px 4px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12 }}>
-                <option>出</option><option>欠</option>
-              </select>
-              <Input value={a.startTime} onChange={(v) => updateRow<DailyReportAttendee>("attendees", i, { startTime: v })} placeholder="08:00" />
-              <Input value={a.endTime} onChange={(v) => updateRow<DailyReportAttendee>("attendees", i, { endTime: v })} placeholder="17:00" />
-              <button onClick={() => removeRow("attendees", i)} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 12 }}>✕</button>
-            </div>
-          ))}
-          <button className="ghost-button" onClick={() => addRow<DailyReportAttendee>("attendees", { name: "", jobType: "", present: true, startTime: "08:00", endTime: "17:00" })} style={{ fontSize: 12 }}>＋ 行追加</button>
-        </div>
-
-        {/* 協力業者 */}
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <SectionTitle>協力業者就業表</SectionTitle>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 60px 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
-            {["業者名", "工種", "人員", "開始", "終了", ""].map((h) => <div key={h} style={{ fontSize: 11, color: "var(--muted)" }}>{h}</div>)}
-          </div>
-          {form.subcontractors.map((s, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 60px 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
-              <Input value={s.company} onChange={(v) => updateRow<DailyReportSubcontractor>("subcontractors", i, { company: v })} placeholder="業者名" />
-              <Input value={s.jobType} onChange={(v) => updateRow<DailyReportSubcontractor>("subcontractors", i, { jobType: v })} placeholder="工種" />
-              <Input value={s.workers} onChange={(v) => updateRow<DailyReportSubcontractor>("subcontractors", i, { workers: Number(v) })} />
-              <Input value={s.startTime} onChange={(v) => updateRow<DailyReportSubcontractor>("subcontractors", i, { startTime: v })} placeholder="08:00" />
-              <Input value={s.endTime} onChange={(v) => updateRow<DailyReportSubcontractor>("subcontractors", i, { endTime: v })} placeholder="17:00" />
-              <button onClick={() => removeRow("subcontractors", i)} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 12 }}>✕</button>
-            </div>
-          ))}
-          <button className="ghost-button" onClick={() => addRow<DailyReportSubcontractor>("subcontractors", { company: "", jobType: "", workers: 1, startTime: "08:00", endTime: "17:00" })} style={{ fontSize: 12 }}>＋ 行追加</button>
-        </div>
-
-        {/* 使用機械 */}
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <SectionTitle>使用機械</SectionTitle>
-          <div style={{ display: "grid", gridTemplateColumns: "3fr 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
-            {["機械名称", "台数", "給油量(ℓ)", ""].map((h) => <div key={h} style={{ fontSize: 11, color: "var(--muted)" }}>{h}</div>)}
-          </div>
-          {form.equipment.map((e, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "3fr 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
-              <Input value={e.name} onChange={(v) => updateRow<DailyReportEquipment>("equipment", i, { name: v })} placeholder="機械名称" />
-              <Input value={e.count} onChange={(v) => updateRow<DailyReportEquipment>("equipment", i, { count: Number(v) })} />
-              <Input value={e.fuel} onChange={(v) => updateRow<DailyReportEquipment>("equipment", i, { fuel: Number(v) })} />
-              <button onClick={() => removeRow("equipment", i)} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 12 }}>✕</button>
-            </div>
-          ))}
-          <button className="ghost-button" onClick={() => addRow<DailyReportEquipment>("equipment", { name: "", count: 1, fuel: 0 })} style={{ fontSize: 12 }}>＋ 行追加</button>
-        </div>
-
-        {/* 使用資材 */}
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <SectionTitle>使用資材</SectionTitle>
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
-            {["資材名称", "種類", "受入(本日)", "受入(累計)", "使用(本日)", "使用(累計)", "残量", ""].map((h) => <div key={h} style={{ fontSize: 10, color: "var(--muted)" }}>{h}</div>)}
-          </div>
-          {form.materials.map((m, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
-              <Input value={m.name} onChange={(v) => updateRow<DailyReportMaterial>("materials", i, { name: v })} placeholder="資材名称" />
-              <Input value={m.type} onChange={(v) => updateRow<DailyReportMaterial>("materials", i, { type: v })} placeholder="種類" />
-              <Input value={m.receivedToday} onChange={(v) => updateRow<DailyReportMaterial>("materials", i, { receivedToday: Number(v) })} />
-              <Input value={m.receivedTotal} onChange={(v) => updateRow<DailyReportMaterial>("materials", i, { receivedTotal: Number(v) })} />
-              <Input value={m.usedToday} onChange={(v) => updateRow<DailyReportMaterial>("materials", i, { usedToday: Number(v) })} />
-              <Input value={m.usedTotal} onChange={(v) => updateRow<DailyReportMaterial>("materials", i, { usedTotal: Number(v) })} />
-              <Input value={m.remaining} onChange={(v) => updateRow<DailyReportMaterial>("materials", i, { remaining: Number(v) })} />
-              <button onClick={() => removeRow("materials", i)} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 12 }}>✕</button>
-            </div>
-          ))}
-          <button className="ghost-button" onClick={() => addRow<DailyReportMaterial>("materials", { name: "", type: "", receivedToday: 0, receivedTotal: 0, usedToday: 0, usedTotal: 0, remaining: 0 })} style={{ fontSize: 12 }}>＋ 行追加</button>
-        </div>
-
-        {/* 特記事項 */}
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <SectionTitle>報告事項・特記事項</SectionTitle>
-          <textarea value={form.notes} onChange={(e) => setF({ notes: e.target.value })} rows={3} placeholder="特記事項・連絡事項を入力" style={{ width: "100%", padding: "6px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12, resize: "vertical" }} />
-        </div>
-
-        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-          <button className="ghost-button" onClick={() => setMode("list")}>キャンセル</button>
-          <button className="ghost-button" onClick={() => save("draft")}>下書き保存</button>
-          <motion.button className="ghost-button" whileTap={{ scale: 0.97 }} onClick={() => save("submitted")} style={{ background: "var(--blue)", color: "#fff", borderColor: "var(--blue)" }}>提出</motion.button>
-        </div>
-      </div>
+      <FormPane
+        initial={editingReport ?? {}}
+        workspaces={workspaces}
+        currentUser={currentUser}
+        onSave={r => save(r)}
+        onCancel={() => setMode(detailId ? "detail" : "list")}
+      />
     );
   }
 
   if (mode === "detail" && detail) {
     return (
-      <div style={{ maxWidth: 860, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className="ghost-button" onClick={() => setMode("list")} style={{ fontSize: 12 }}>← 一覧</button>
-            <h2 style={{ fontSize: 16, fontWeight: 600 }}>{workspaceName(detail.workspaceId)} — 工事打合簿</h2>
-            {statusBadge(detail.status)}
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className="ghost-button" onClick={() => openEdit(detail)} style={{ fontSize: 12 }}>編集</button>
-            <button className="ghost-button" onClick={() => { if (confirm("削除しますか？")) deleteReport(detail.id); }} style={{ fontSize: 12, color: "var(--red)" }}>削除</button>
-          </div>
-        </div>
-
-        {/* 基本情報 */}
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <SectionTitle>基本情報</SectionTitle>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr", gap: 14 }}>
-            {[
-              ["打合日", detail.meetingDate],
-              ["実施日", detail.implementDate],
-              ["天候", detail.weather],
-              ["進捗率", `${detail.progressRate}%`],
-            ].map(([l, v]) => (
-              <div key={l}>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 2 }}>{l}</div>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{v}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 12 }}>
-            <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>作業予定内容</div>
-              <div style={{ fontSize: 12, whiteSpace: "pre-wrap", background: "var(--soft)", padding: "8px 10px", borderRadius: 6 }}>{detail.plannedWork || "—"}</div>
-            </div>
-            <div>
-              <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>作業実施内容</div>
-              <div style={{ fontSize: 12, whiteSpace: "pre-wrap", background: "var(--soft)", padding: "8px 10px", borderRadius: 6 }}>{detail.actualWork || "—"}</div>
-            </div>
-          </div>
-          {/* 進捗バー */}
-          <div style={{ marginTop: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--muted)", marginBottom: 4 }}>
-              <span>工程進捗</span>
-              <span>計画 {detail.plannedDays}日 / 残 {detail.remainingDays}日</span>
-            </div>
-            <div style={{ height: 8, background: "var(--line)", borderRadius: 4, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${Math.min(detail.progressRate, 100)}%`, background: "var(--blue)", borderRadius: 4, transition: "width 0.5s" }} />
-            </div>
-          </div>
-        </div>
-
-        {/* 品質安全 */}
-        {detail.safetyItems.length > 0 && (
-          <div className="panel" style={{ marginBottom: 14 }}>
-            <SectionTitle>品質安全指示事項</SectionTitle>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead>
-                <tr style={{ background: "var(--soft)" }}>
-                  {["誰が", "誰に", "確認及び是正状況"].map((h) => <th key={h} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 600, fontSize: 11 }}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {detail.safetyItems.map((s, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
-                    <td style={{ padding: "7px 10px" }}>{s.who}</td>
-                    <td style={{ padding: "7px 10px" }}>{s.toWhom}</td>
-                    <td style={{ padding: "7px 10px" }}>{s.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* 社員出面表 */}
-        {detail.attendees.length > 0 && (
-          <div className="panel" style={{ marginBottom: 14 }}>
-            <SectionTitle>社員出面表</SectionTitle>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead>
-                <tr style={{ background: "var(--soft)" }}>
-                  {["氏名", "職種", "出欠", "就業時間"].map((h) => <th key={h} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 600, fontSize: 11 }}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {detail.attendees.map((a, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
-                    <td style={{ padding: "7px 10px" }}>{a.name}</td>
-                    <td style={{ padding: "7px 10px" }}>{a.jobType}</td>
-                    <td style={{ padding: "7px 10px" }}><span className={`status ${a.present ? "green" : "red"}`}>{a.present ? "出" : "欠"}</span></td>
-                    <td style={{ padding: "7px 10px" }}>{a.startTime} ～ {a.endTime}</td>
-                  </tr>
-                ))}
-                <tr style={{ background: "var(--soft)", fontWeight: 600 }}>
-                  <td colSpan={2} style={{ padding: "6px 10px", fontSize: 11 }}>日計</td>
-                  <td colSpan={2} style={{ padding: "6px 10px" }}>{detail.attendees.filter((a) => a.present).length} 名</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* 協力業者 */}
-        {detail.subcontractors.filter((s) => s.company).length > 0 && (
-          <div className="panel" style={{ marginBottom: 14 }}>
-            <SectionTitle>協力業者就業表</SectionTitle>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead>
-                <tr style={{ background: "var(--soft)" }}>
-                  {["協力業者名", "工種", "実施人員", "就業時間"].map((h) => <th key={h} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 600, fontSize: 11 }}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {detail.subcontractors.filter((s) => s.company).map((s, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
-                    <td style={{ padding: "7px 10px" }}>{s.company}</td>
-                    <td style={{ padding: "7px 10px" }}>{s.jobType}</td>
-                    <td style={{ padding: "7px 10px" }}>{s.workers} 名</td>
-                    <td style={{ padding: "7px 10px" }}>{s.startTime} ～ {s.endTime}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* 使用機械 */}
-        {detail.equipment.filter((e) => e.name).length > 0 && (
-          <div className="panel" style={{ marginBottom: 14 }}>
-            <SectionTitle>使用機械</SectionTitle>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead>
-                <tr style={{ background: "var(--soft)" }}>
-                  {["機械名称", "台数", "給油量(ℓ)"].map((h) => <th key={h} style={{ padding: "6px 10px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 600, fontSize: 11 }}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {detail.equipment.filter((e) => e.name).map((e, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
-                    <td style={{ padding: "7px 10px" }}>{e.name}</td>
-                    <td style={{ padding: "7px 10px" }}>{e.count} 台</td>
-                    <td style={{ padding: "7px 10px" }}>{e.fuel} ℓ</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* 使用資材 */}
-        {detail.materials.filter((m) => m.name).length > 0 && (
-          <div className="panel" style={{ marginBottom: 14 }}>
-            <SectionTitle>使用資材</SectionTitle>
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-              <thead>
-                <tr style={{ background: "var(--soft)" }}>
-                  {["資材名称", "種類", "受入(本日)", "受入(累計)", "使用(本日)", "使用(累計)", "残量"].map((h) => <th key={h} style={{ padding: "5px 8px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 600, fontSize: 10 }}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {detail.materials.filter((m) => m.name).map((m, i) => (
-                  <tr key={i} style={{ borderBottom: "1px solid var(--line)" }}>
-                    <td style={{ padding: "6px 8px" }}>{m.name}</td>
-                    <td style={{ padding: "6px 8px" }}>{m.type}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{m.receivedToday}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{m.receivedTotal}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{m.usedToday}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{m.usedTotal}</td>
-                    <td style={{ padding: "6px 8px", textAlign: "right" }}>{m.remaining}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* 特記事項 */}
-        {detail.notes && (
-          <div className="panel" style={{ marginBottom: 14 }}>
-            <SectionTitle>報告事項・特記事項</SectionTitle>
-            <div style={{ fontSize: 12, whiteSpace: "pre-wrap" }}>{detail.notes}</div>
-          </div>
-        )}
-
-        {/* 承認欄 */}
-        <div className="panel" style={{ marginBottom: 14 }}>
-          <SectionTitle>承認欄</SectionTitle>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
-            {APPROVAL_ROLES.map((role) => {
-              const approved = detail.approvals?.[role];
-              return (
-                <div key={role} style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
-                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>{role}</div>
-                  {approved ? (
-                    <div>
-                      <div style={{ fontSize: 18, color: "var(--blue)" }}>✓</div>
-                      <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 4 }}>承認済</div>
-                    </div>
-                  ) : (
-                    <button className="ghost-button" onClick={() => approve(detail.id, role)} style={{ fontSize: 11, padding: "4px 10px" }}>承認する</button>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
+      <DetailPane
+        r={detail}
+        wsName={wsName(detail.workspaceId)}
+        onClose={() => setMode("list")}
+        onEdit={() => { setEditingReport(detail); setMode("form"); }}
+        onApprove={role => approve(detail.id, role)}
+        onDelete={() => deleteReport(detail.id)}
+      />
     );
   }
 
+  /* ── 一覧（カラム形式） ── */
   return (
-    <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <div style={{ fontSize: 13, color: "var(--muted)" }}>全 {reports.length} 件</div>
-        <motion.button className="ghost-button" onClick={openNew} whileTap={{ scale: 0.97 }} style={{ background: "var(--blue)", color: "#fff", borderColor: "var(--blue)" }}>
-          ＋ 新規日報
-        </motion.button>
-      </div>
+    <motion.div
+      key="list"
+      initial={{ opacity: 0, x: 18 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2 }}
+      style={{ display: "grid", gridTemplateColumns: "200px minmax(0,1fr)", gap: 12 }}
+    >
+      {/* 左: 工事別サイドバー */}
+      <aside className="panel" style={{ alignSelf: "start" }}>
+        <div className="panel-title">工事で絞り込む</div>
 
-      <AnimatePresence>
-        {reports.length === 0 && (
-          <div style={{ textAlign: "center", padding: "60px 0", color: "var(--muted)", fontSize: 13 }}>
-            日報がまだありません。「新規日報」から作成してください。
+        <button
+          onClick={() => setWsFilter("all")}
+          style={{ width: "100%", display: "flex", justifyContent: "space-between", padding: "7px 10px", border: "none", borderRadius: 6, background: wsFilter === "all" ? "var(--blue)" : "transparent", color: wsFilter === "all" ? "#fff" : "var(--text)", cursor: "pointer", fontSize: 12, marginBottom: 2 }}
+        >
+          <span>すべて</span><span>{allReports.length}</span>
+        </button>
+
+        {wsCounts.map(ws => (
+          <button
+            key={ws.id}
+            onClick={() => setWsFilter(ws.id)}
+            style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", border: "none", borderRadius: 6, background: wsFilter === ws.id ? "var(--blue)" : "transparent", color: wsFilter === ws.id ? "#fff" : "var(--text)", cursor: "pointer", fontSize: 12, marginBottom: 2, textAlign: "left" }}
+          >
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>{ws.name}</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+              {ws.draft > 0 && <span style={{ fontSize: 10, background: wsFilter === ws.id ? "rgba(255,255,255,0.3)" : "var(--yellow)", borderRadius: 4, padding: "1px 5px" }}>{ws.draft}下書</span>}
+              <span style={{ fontSize: 11 }}>{ws.total}</span>
+            </span>
+          </button>
+        ))}
+
+        <div style={{ borderTop: "1px solid var(--line)", margin: "10px 0 8px" }} />
+        <div className="panel-title" style={{ marginBottom: 6 }}>ステータス</div>
+        {STATUS_FILTERS.map(s => (
+          <button key={s} onClick={() => setStatusFilter(s)}
+            style={{ width: "100%", display: "flex", justifyContent: "space-between", padding: "6px 10px", border: "none", borderRadius: 6, background: statusFilter === s ? "var(--soft)" : "transparent", color: statusFilter === s ? "var(--blue)" : "var(--text)", fontWeight: statusFilter === s ? 700 : 400, cursor: "pointer", fontSize: 12, marginBottom: 2 }}>
+            <span>{s}</span>
+            <span style={{ fontSize: 11, color: "var(--muted)" }}>
+              {s === "すべて" ? allReports.length : allReports.filter(r => statusLabel(r.status) === s).length}
+            </span>
+          </button>
+        ))}
+      </aside>
+
+      {/* 右: カード一覧 */}
+      <section className="panel">
+        <div className="panel-title" style={{ justifyContent: "space-between" }}>
+          <span>工事日報 <span style={{ fontWeight: 400, color: "var(--muted)", fontSize: 12 }}>{filtered.length}件</span></span>
+          <motion.button
+            className="ghost-button"
+            whileTap={{ scale: 0.97 }}
+            onClick={() => { setEditingReport(null); setMode("form"); }}
+            style={{ background: "var(--blue)", color: "#fff", borderColor: "var(--blue)", fontSize: 12 }}
+          >＋ 新規日報</motion.button>
+        </div>
+
+        {filtered.length === 0 && (
+          <div style={{ textAlign: "center", padding: "48px 0", color: "var(--muted)", fontSize: 13 }}>
+            該当する日報はありません。
           </div>
         )}
-        {reports.map((r) => (
-          <motion.div
-            key={r.id}
-            className="row-card"
-            initial={{ opacity: 0, y: 6 }}
-            animate={{ opacity: 1, y: 0 }}
-            onClick={() => openDetail(r.id)}
-            style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: 12 }}
-          >
-            <div style={{ width: 4, height: 40, borderRadius: 2, background: state.workspaces?.find((w) => w.id === r.workspaceId)?.color ?? "var(--blue)", flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 600, fontSize: 13 }}>{workspaceName(r.workspaceId)}</div>
-              <div className="muted-text">実施日: {r.implementDate} ／ 天候: {r.weather} ／ 進捗: {r.progressRate}%</div>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-              {statusBadge(r.status)}
-              <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                出面: {r.attendees.filter((a) => a.present).length}名
-              </div>
-              <button className="ghost-button" onClick={(e) => { e.stopPropagation(); openEdit(r); }} style={{ fontSize: 11, padding: "3px 8px" }}>編集</button>
-            </div>
-          </motion.div>
-        ))}
-      </AnimatePresence>
-    </div>
+
+        {/* カードグリッド */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 10 }}>
+          <AnimatePresence>
+            {filtered.map(r => {
+              const ws = workspaces.find(w => w.id === r.workspaceId);
+              const approvedCount = Object.keys(r.approvals ?? {}).length;
+              return (
+                <motion.div
+                  key={r.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  whileHover={{ y: -2, boxShadow: "var(--shadow)" }}
+                  onClick={() => { setDetailId(r.id); setMode("detail"); }}
+                  style={{ border: "1px solid var(--line)", borderRadius: 10, background: "var(--panel)", padding: "12px 14px", cursor: "pointer", position: "relative", overflow: "hidden" }}
+                >
+                  {/* 工事カラーバー */}
+                  <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: ws?.color ?? "var(--blue)", borderRadius: "10px 10px 0 0" }} />
+
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6, marginTop: 4 }}>
+                    <div style={{ fontWeight: 600, fontSize: 12, flex: 1, marginRight: 6, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ws?.name ?? "—"}</div>
+                    <span className={`status ${statusColor(r.status)}`} style={{ flexShrink: 0 }}>{statusLabel(r.status)}</span>
+                  </div>
+
+                  <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>
+                    {r.implementDate} ／ {WEATHER_ICON[r.weather] ?? ""} {r.weather}
+                  </div>
+
+                  {/* 進捗バー */}
+                  <div style={{ marginBottom: 8 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 10, color: "var(--muted)", marginBottom: 3 }}>
+                      <span>進捗</span><span>{r.progressRate}%</span>
+                    </div>
+                    <div style={{ height: 5, background: "var(--line)", borderRadius: 3, overflow: "hidden" }}>
+                      <div style={{ height: "100%", width: `${Math.min(r.progressRate, 100)}%`, background: ws?.color ?? "var(--blue)", borderRadius: 3 }} />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 10, fontSize: 11, color: "var(--muted)" }}>
+                    <span>出面 {r.attendees.filter(a => a.present).length}名</span>
+                    <span>承認 {approvedCount}/{APPROVAL_ROLES.length}</span>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </AnimatePresence>
+        </div>
+      </section>
+    </motion.div>
   );
 }
