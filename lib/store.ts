@@ -112,6 +112,13 @@ const seedState: AppState = {
     { id: "l25", name: "酸素欠乏危険作業主任者",      category: "field",                   categoryLabel: "現場作業系", person: "木村 七郎", dept: "現場部", acquired: "2023/03/05", expires: "2028/03/04", days: 622,  renewal: "再講習",       status: "ok",      notify: true },
     { id: "l26", name: "有機溶剤作業主任者",          category: "field",                   categoryLabel: "現場作業系", person: "伊藤 四郎", dept: "現場部", acquired: "2021/08/20", expires: "2031/08/19", days: 1885, renewal: "再講習",       status: "ok",      notify: false },
   ],
+  knowledge: [
+    { id: "k1", title: "社内申請ルール", body: "稟議・経費精算・休暇申請の提出期限と手順をまとめています。\n\n## 稟議\n- 金額5万円以上は部長承認が必要\n- 申請期日は支出予定日の5営業日前\n\n## 経費精算\n- 領収書は原本を経理部へ提出\n- 翌月末締め\n\n## 休暇\n- 有休は3営業日前までに申請", author: "u3", category: "申請・手続き", tags: ["申請", "稟議", "経費"], date: "2026-05-10", updatedAt: "2026-06-01", pinned: true },
+    { id: "k2", title: "会議メモテンプレート", body: "## 会議情報\n- 日時:\n- 場所:\n- 参加者:\n\n## アジェンダ\n1. \n2. \n3. \n\n## 決定事項\n-\n\n## 次回アクション\n| 担当 | 内容 | 期限 |\n|---|---|---|\n|  |  |  |", author: "u1", category: "テンプレート", tags: ["テンプレート", "会議"], date: "2026-04-15", updatedAt: "2026-04-15", pinned: false },
+    { id: "k3", title: "社内FAQ", body: "## よくある質問\n\n**Q: 有休残日数はどこで確認できますか？**\nA: タイムカード画面の月次集計から確認できます。\n\n**Q: 会議室の予約はどうすれば？**\nA: 設備予約画面から設備を選んで予約できます。\n\n**Q: ファイルをアップロードするには？**\nA: ファイル管理画面の「ファイル登録」ボタンから追加できます。", author: "u3", category: "FAQ", tags: ["FAQ", "ヘルプ"], date: "2026-03-01", updatedAt: "2026-06-10", pinned: false },
+    { id: "k4", title: "セキュリティガイドライン", body: "## パスワードポリシー\n- 8文字以上、英数字混在\n- 90日ごとに変更\n\n## 情報取り扱い\n- 社外持ち出しは申請が必要\n- USBメモリの使用は禁止\n\n## インシデント報告\n疑わしい事象はすぐに情報システム部へ報告してください。", author: "u3", category: "ルール・規程", tags: ["セキュリティ", "ルール"], date: "2026-01-20", updatedAt: "2026-05-15", pinned: true },
+    { id: "k5", title: "新人オンボーディングガイド", body: "## 入社初日\n1. PCセットアップ\n2. 社内システムアカウント発行依頼\n3. 部署紹介\n\n## 1週間以内\n- 業務マニュアル閲覧\n- 担当業務のヒアリング\n\n## 1ヶ月以内\n- 各種申請フロー体験\n- 目標設定シート提出", author: "u1", category: "人事・総務", tags: ["オンボーディング", "新人"], date: "2026-02-01", updatedAt: "2026-04-01", pinned: false },
+  ],
   uiPrefs: {
     theme: "default",
     density: "standard",

@@ -261,6 +261,18 @@ export interface EmployeeCertification {
   notify: boolean;
 }
 
+export interface KnowledgeArticle {
+  id: string;
+  title: string;
+  body: string;
+  author: string;
+  category: string;
+  tags: string[];
+  date: string;
+  updatedAt: string;
+  pinned: boolean;
+}
+
 export interface UiPrefs {
   theme: "default" | "focus" | "minimal";
   density: "standard" | "compact" | "spacious";
@@ -284,6 +296,7 @@ export interface AppState {
   auditLogs: AuditLog[];
   constructionLicenses: ConstructionLicense[];
   employeeCertifications: EmployeeCertification[];
+  knowledge: KnowledgeArticle[];
   uiPrefs: UiPrefs;
   bulletinSubscriptions?: string[];
 }
