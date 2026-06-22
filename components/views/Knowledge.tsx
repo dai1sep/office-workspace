@@ -34,6 +34,7 @@ export default function KnowledgeView() {
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "detail">("list");
+  const [collapsedCats, setCollapsedCats] = useState<Set<string>>(new Set());
   const [modalOpen, setModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -72,6 +73,26 @@ export default function KnowledgeView() {
       })
       .sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt));
   }, [articles, selectedCategory, query]);
+
+  const mobileGrouped = useMemo(() => {
+    const q = query.toLowerCase();
+    const bySearch = articles.filter(
+      (a) =>
+        !query ||
+        a.title.toLowerCase().includes(q) ||
+        a.body.toLowerCase().includes(q) ||
+        a.tags.some((t) => t.toLowerCase().includes(q)),
+    );
+    const sorted = [...bySearch].sort(
+      (a, b) => Number(b.pinned) - Number(a.pinned) || b.updatedAt.localeCompare(a.updatedAt),
+    );
+    const map: Record<string, KnowledgeArticle[]> = {};
+    for (const a of sorted) {
+      if (!map[a.category]) map[a.category] = [];
+      map[a.category].push(a);
+    }
+    return map;
+  }, [articles, query]);
 
   const selectedArticle = articles.find((a) => a.id === selectedId) ?? null;
 
@@ -143,6 +164,20 @@ export default function KnowledgeView() {
   }
 
   if (isMobile) {
+    const visibleCats = categories.filter(
+      (c) => c !== "すべて" && (mobileGrouped[c]?.length ?? 0) > 0,
+    );
+    const mobileTotal = Object.values(mobileGrouped).reduce((n, arr) => n + arr.length, 0);
+    const allCollapsed = visibleCats.length > 0 && visibleCats.every((c) => collapsedCats.has(c));
+    const toggleAll = () =>
+      setCollapsedCats(allCollapsed ? new Set<string>() : new Set(visibleCats));
+    const toggleCat = (cat: string) =>
+      setCollapsedCats((prev) => {
+        const next = new Set(prev);
+        if (next.has(cat)) next.delete(cat);
+        else next.add(cat);
+        return next;
+      });
     return (
       <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
         <AnimatePresence mode="wait">
@@ -196,58 +231,59 @@ export default function KnowledgeView() {
                   <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="記事を検索..." style={{ flex: 1, padding: "7px 10px", border: "1px solid var(--line)", borderRadius: 8, background: "var(--soft)", color: "var(--text)", fontSize: 13 }} />
                   <button onClick={openCreate} style={{ padding: "7px 14px", background: "var(--blue)", color: "#fff", border: "none", borderRadius: 8, cursor: "pointer", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap" }}>+ 新規</button>
                 </div>
-                <div style={{ display: "flex", gap: 6, overflowX: "auto", padding: "0 12px 10px", scrollbarWidth: "none" }}>
-                  {categories.map((cat) => (
-                    <button
-                      key={cat}
-                      onClick={() => setSelectedCategory(cat)}
-                      style={{
-                        flexShrink: 0,
-                        padding: "5px 12px",
-                        borderRadius: 20,
-                        border: selectedCategory === cat ? "none" : "1px solid var(--line)",
-                        background: selectedCategory === cat ? "var(--blue)" : "var(--soft)",
-                        color: selectedCategory === cat ? "#fff" : "var(--text)",
-                        fontSize: 12,
-                        fontWeight: selectedCategory === cat ? 600 : 400,
-                        cursor: "pointer",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {cat}
-                      <span style={{ marginLeft: 5, fontSize: 10, opacity: 0.8 }}>
-                        {cat === "すべて" ? articles.length : (categoryCounts[cat] ?? 0)}
-                      </span>
-                    </button>
-                  ))}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 14px 9px" }}>
+                  <span className="muted-text" style={{ fontSize: 11 }}>{visibleCats.length} カテゴリ・{mobileTotal} 件</span>
+                  <button onClick={toggleAll} disabled={!!query} style={{ border: 0, background: "transparent", color: query ? "var(--muted)" : "var(--blue)", fontSize: 12, cursor: query ? "default" : "pointer", padding: "2px 0" }}>{allCollapsed ? "▾ すべて展開" : "▸ すべて収納"}</button>
                 </div>
               </div>
               <div style={{ flex: 1, overflowY: "auto" }}>
-                {filtered.length === 0 && <div className="muted-text" style={{ padding: 24, textAlign: "center", fontSize: 13 }}>記事がありません</div>}
-                {filtered.map((article) => (
-                  <motion.div
-                    key={article.id}
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    onClick={() => { setSelectedId(article.id); setMobileView("detail"); }}
-                    style={{ padding: "13px 14px", borderBottom: "1px solid var(--line)", cursor: "pointer" }}
-                  >
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 5 }}>
-                      {article.pinned && <span style={{ color: "var(--orange)", fontSize: 12 }}>📌</span>}
-                      <span style={{ fontWeight: 600, fontSize: 14, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{article.title}</span>
-                      <span style={{ color: "var(--muted)", fontSize: 12 }}>›</span>
+                {visibleCats.length === 0 && <div className="muted-text" style={{ padding: 24, textAlign: "center", fontSize: 13 }}>記事がありません</div>}
+                {visibleCats.map((cat) => {
+                  const items = mobileGrouped[cat] ?? [];
+                  const open = !!query || !collapsedCats.has(cat);
+                  return (
+                    <div key={cat} style={{ borderBottom: "1px solid var(--line)" }}>
+                      <button
+                        onClick={() => toggleCat(cat)}
+                        style={{ width: "100%", display: "flex", alignItems: "center", gap: 8, padding: "11px 14px", background: "var(--soft)", border: 0, cursor: "pointer", textAlign: "left" }}
+                      >
+                        <motion.span animate={{ rotate: open ? 90 : 0 }} transition={{ duration: 0.15 }} style={{ color: "var(--muted)", fontSize: 10, display: "inline-block" }}>▶</motion.span>
+                        <span style={{ fontWeight: 600, fontSize: 13, flex: 1, color: "var(--text)" }}>{cat}</span>
+                        <span style={{ fontSize: 11, background: "var(--line)", color: "var(--muted)", borderRadius: 10, padding: "1px 8px", minWidth: 20, textAlign: "center" }}>{items.length}</span>
+                      </button>
+                      <AnimatePresence initial={false}>
+                        {open && (
+                          <motion.div
+                            key="body"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            style={{ overflow: "hidden" }}
+                          >
+                            {items.map((article) => (
+                              <div
+                                key={article.id}
+                                onClick={() => { setSelectedId(article.id); setMobileView("detail"); }}
+                                style={{ padding: "12px 14px 12px 30px", borderTop: "1px solid var(--line)", cursor: "pointer" }}
+                              >
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                                  {article.pinned && <span style={{ color: "var(--orange)", fontSize: 12 }}>📌</span>}
+                                  <span style={{ fontWeight: 500, fontSize: 14, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{article.title}</span>
+                                  <span style={{ color: "var(--muted)", fontSize: 12 }}>›</span>
+                                </div>
+                                <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                  <span className="muted-text" style={{ fontSize: 11 }}>更新 {article.updatedAt}</span>
+                                  {article.tags.slice(0, 3).map((tag) => <span key={tag} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 10, background: "rgba(59,130,246,0.1)", color: "var(--blue)" }}>#{tag}</span>)}
+                                </div>
+                              </div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                      <span style={{ fontSize: 11, padding: "1px 7px", borderRadius: 10, background: "var(--soft)", color: "var(--muted)", border: "1px solid var(--line)" }}>{article.category}</span>
-                      <span className="muted-text" style={{ fontSize: 11 }}>{article.updatedAt}</span>
-                    </div>
-                    {article.tags.length > 0 && (
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 6 }}>
-                        {article.tags.slice(0, 3).map((tag) => <span key={tag} style={{ fontSize: 10, padding: "1px 7px", borderRadius: 10, background: "rgba(59,130,246,0.1)", color: "var(--blue)" }}>#{tag}</span>)}
-                      </div>
-                    )}
-                  </motion.div>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           )}
