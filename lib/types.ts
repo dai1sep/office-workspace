@@ -15,7 +15,8 @@ export type ViewId =
   | "spaces"
   | "knowledge"
   | "canvas"
-  | "search";
+  | "search"
+  | "licenses";
 
 export interface User {
   id: string;
@@ -229,6 +230,37 @@ export interface AuditLog {
   detail: string;
 }
 
+export interface ConstructionLicense {
+  id: string;
+  type: string;
+  num: string;
+  kubun: "大臣・一般" | "大臣・特定" | "知事・一般" | "知事・特定";
+  acquired: string;
+  expires: string;
+  days: number;
+  person: string;
+  dept: string;
+  wf: "未起票" | "申請中" | "承認済" | "差戻し";
+  files: number;
+  status: "ok" | "warn" | "danger" | "expired";
+  notes: string;
+}
+
+export interface EmployeeCertification {
+  id: string;
+  name: string;
+  category: string;
+  categoryLabel: string;
+  person: string;
+  dept: string;
+  acquired: string;
+  expires: string | null;
+  days: number | null;
+  renewal: string;
+  status: "ok" | "warn" | "danger" | "expired";
+  notify: boolean;
+}
+
 export interface UiPrefs {
   theme: "default" | "focus" | "minimal";
   density: "standard" | "compact" | "spacious";
@@ -250,6 +282,8 @@ export interface AppState {
   timecards: Timecard[];
   mails: MailThread[];
   auditLogs: AuditLog[];
+  constructionLicenses: ConstructionLicense[];
+  employeeCertifications: EmployeeCertification[];
   uiPrefs: UiPrefs;
   bulletinSubscriptions?: string[];
 }

@@ -20,6 +20,7 @@ const LABELS: Record<ViewId, string> = {
   knowledge: "ナレッジ",
   canvas: "ホワイトボード",
   search: "検索",
+  licenses: "資格・許可管理",
 };
 
 export default function Placeholder({ view }: { view: ViewId }) {

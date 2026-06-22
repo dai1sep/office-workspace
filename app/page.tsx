@@ -26,6 +26,7 @@ import KnowledgeView from "@/components/views/Knowledge";
 import FolderView from "@/components/views/Folder";
 import CanvasView from "@/components/views/Canvas";
 import SearchView from "@/components/views/Search";
+import LicensesView from "@/components/views/Licenses";
 import Placeholder from "@/components/views/Placeholder";
 import { useApp } from "@/lib/context";
 import { ViewId } from "@/lib/types";
@@ -49,6 +50,7 @@ const VIEW_META: Record<ViewId, { icon: string; title: string; lead: string }> =
   knowledge: { icon: "知", title: "ナレッジ", lead: "会議メモ、FAQ、文書を検索・整理します。" },
   canvas: { icon: "板", title: "ホワイトボード", lead: "業務フローや会議中のアイデアを付箋で整理します。" },
   search: { icon: "検", title: "検索結果", lead: "業務データを横断検索します。" },
+  licenses: { icon: "証", title: "資格・許可管理", lead: "建設業許可・社員資格の取得状況と有効期限を管理します。" },
 };
 
 function ViewContent({ view }: { view: ViewId }) {
@@ -87,6 +89,8 @@ function ViewContent({ view }: { view: ViewId }) {
       return <CanvasView />;
     case "search":
       return <SearchView />;
+    case "licenses":
+      return <LicensesView />;
     default:
       return <Placeholder view={view} />;
   }
