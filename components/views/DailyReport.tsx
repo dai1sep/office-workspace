@@ -11,6 +11,7 @@ import {
   DailyReportEquipment,
   DailyReportMaterial,
   DailyReportSafetyItem,
+  DailyReportProgress,
 } from "@/lib/types";
 
 const WEATHER_OPTIONS = ["晴れ", "曇り", "雨", "雪", "晴れ時々曇り", "曇り時々雨"];
@@ -26,7 +27,7 @@ const emptyForm = (): Omit<DailyReport, "id" | "createdBy" | "createdAt"> => ({
   actualWork: "",
   safetyItems: [{ who: "", toWhom: "", status: "" }],
   attendees: [{ name: "", jobType: "", present: true, startTime: "08:00", endTime: "17:00" }],
-  subcontractors: [{ company: "", jobType: "", workers: 1, startTime: "08:00", endTime: "17:00" }],
+  subcontractors: [{ company: "", jobType: "", workContent: "", machineName: "", machineCount: 0, machineCumCount: 0, workers: 1, startTime: "08:00", endTime: "17:00" }],
   equipment: [{ name: "", count: 1, fuel: 0 }],
   materials: [{ name: "", type: "", receivedToday: 0, receivedTotal: 0, usedToday: 0, usedTotal: 0, remaining: 0 }],
   progressRate: 0,
@@ -35,6 +36,12 @@ const emptyForm = (): Omit<DailyReport, "id" | "createdBy" | "createdAt"> => ({
   notes: "",
   approvals: {},
   status: "draft",
+  progressItems: [
+    { caseType: "CASE-A", unit: "本", totalQty: 0, todayQty: 0, cumQty: 0, remainQty: 0, progress: 0 },
+    { caseType: "CASE-B", unit: "本", totalQty: 0, todayQty: 0, cumQty: 0, remainQty: 0, progress: 0 },
+    { caseType: "CASE-C", unit: "本", totalQty: 0, todayQty: 0, cumQty: 0, remainQty: 0, progress: 0 },
+  ],
+  disasterFreeHours: 0,
 });
 
 /* ── helpers ── */
@@ -65,189 +72,162 @@ const WEATHER_ICON: Record<string, string> = {
 };
 
 /* ══════════════════════════════════════════
-   印刷用レイアウト（window.print()）
+   Blob URL 印刷（Excel帳票レイアウト）
 ══════════════════════════════════════════ */
+function buildPrintHtml(r: DailyReport, wsName: string): string {
+  const esc = (s?: string | number) => String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const cell = (v: string | number | undefined, w = "", extra = "") =>
+    `<td style="border:1px solid #555;padding:3px 6px;vertical-align:top;${w ? `width:${w};` : ""}${extra}">${esc(v)}</td>`;
+  const hcell = (v: string, colspan = 1, w = "") =>
+    `<td colspan="${colspan}" style="border:1px solid #555;padding:3px 6px;background:#dce6f1;font-weight:700;text-align:center;${w ? `width:${w};` : ""}">${esc(v)}</td>`;
+
+  const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
+  const fmDate = (d: string) => {
+    const dt = new Date(d);
+    const [y, m, day] = d.split("-");
+    return `${y}年${m}月${day}日（${DAYS[dt.getDay()]}）`;
+  };
+
+  // 業者・作業テーブル
+  const subRows = (r.subcontractors.length ? r.subcontractors : [{ company: "", jobType: "", workContent: "", machineName: "", machineCount: undefined, machineCumCount: undefined, workers: 0, startTime: "", endTime: "" }])
+    .map(s => `<tr>
+      ${cell(s.company, "18%")}${cell(s.jobType, "10%")}${cell(s.workContent, "", "min-height:28px")}
+      ${cell(s.machineName, "12%")}${cell(s.machineCount ?? "", "6%", "text-align:center")}${cell(s.machineCumCount ?? "", "6%", "text-align:center")}
+    </tr>`).join("");
+
+  const empTotal = r.attendees.filter(a => a.present && a.name).length;
+  const subTotal = r.subcontractors.filter(s => s.company).reduce((acc, s) => acc + (s.workers || 0), 0);
+
+  // 現場出来高
+  const progressRows = (r.progressItems?.length ? r.progressItems : [
+    { caseType: "CASE-A", unit: "本", totalQty: 0, todayQty: 0, cumQty: 0, remainQty: 0, progress: 0 },
+    { caseType: "CASE-B", unit: "本", totalQty: 0, todayQty: 0, cumQty: 0, remainQty: 0, progress: 0 },
+    { caseType: "CASE-C", unit: "本", totalQty: 0, todayQty: 0, cumQty: 0, remainQty: 0, progress: 0 },
+  ]).map(p => `<tr>
+    ${cell(p.caseType, "12%")}${cell(p.unit, "8%", "text-align:center")}
+    ${cell(p.totalQty || "", "10%", "text-align:right")}${cell(p.todayQty || "", "10%", "text-align:right")}
+    ${cell(p.cumQty || "", "10%", "text-align:right")}${cell(p.remainQty || "", "10%", "text-align:right")}
+    ${cell(p.progress ? p.progress + "%" : "", "10%", "text-align:right")}
+  </tr>`).join("");
+
+  // 承認欄
+  const signCells = APPROVAL_ROLES.map(role =>
+    `<td style="border:1px solid #555;padding:3px 6px;text-align:center;font-size:10px;background:#dce6f1;font-weight:700">${esc(role)}</td>`
+  ).join("");
+  const approvalCells = APPROVAL_ROLES.map(role =>
+    `<td style="border:1px solid #555;height:48px;text-align:center;font-size:18px">${r.approvals?.[role] ? "✓" : ""}</td>`
+  ).join("");
+
+  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<title>工事打合簿 ${r.implementDate} ${wsName}</title>
+<style>
+  body { font-family: "MS Gothic","Yu Gothic","Meiryo",sans-serif; font-size: 11px; margin: 12mm 14mm; color: #000; }
+  h1 { font-size: 14px; text-align: center; margin: 0 0 8px; letter-spacing: 0.1em; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 6px; }
+  td, th { border: 1px solid #555; padding: 3px 5px; vertical-align: top; font-size: 11px; }
+  .section-label { background: #dce6f1; font-weight: 700; text-align: center; }
+  .pre { white-space: pre-wrap; min-height: 52px; }
+  @media print { @page { size: A4 portrait; margin: 12mm 14mm; } }
+</style></head><body>
+<h1>工事打合簿（作業打合せ記録・安全衛生日誌）</h1>
+
+<table>
+  <tr>${hcell("工事番号", 1, "80px")}${cell("", "120px")}${hcell("工事略称")}${cell(wsName, "", "font-weight:700")}</tr>
+  <tr>${hcell("打合日")}${cell(fmDate(r.meetingDate))}${hcell("実施日")}${cell(fmDate(r.implementDate))}</tr>
+  <tr>${hcell("天候")}${cell(r.weather)}${hcell("作成者")}${cell(r.createdBy)}</tr>
+</table>
+
+<table>
+  <tr>${hcell("業者名", 1, "18%")}${hcell("職種", 1, "10%")}${hcell("作業内容")}${hcell("使用機械名称", 1, "12%")}${hcell("台数", 1, "6%")}${hcell("累計", 1, "6%")}</tr>
+  ${subRows}
+  <tr><td colspan="6" style="border:1px solid #555;height:16px"></td></tr>
+</table>
+
+<table>
+  <tr>
+    <td class="section-label" style="width:50%;border:1px solid #555;padding:3px 6px">作業指示・安全衛生指示等</td>
+    <td class="section-label" style="width:50%;border:1px solid #555;padding:3px 6px">確認・是正指示事項</td>
+  </tr>
+  <tr>
+    <td class="pre" style="border:1px solid #555;padding:4px 6px;height:70px">${esc(r.plannedWork)}</td>
+    <td class="pre" style="border:1px solid #555;padding:4px 6px;height:70px">${esc(r.actualWork)}</td>
+  </tr>
+</table>
+
+<table>
+  <tr>
+    <td colspan="3" class="section-label" style="border:1px solid #555;padding:3px 6px;width:42%">就労人員（社員）</td>
+    <td colspan="4" class="section-label" style="border:1px solid #555;padding:3px 6px">就労人員（協力業者）</td>
+  </tr>
+  <tr>
+    ${hcell("氏名")}${hcell("職種", 1, "60px")}${hcell("就業時間", 1, "90px")}
+    ${hcell("業者名")}${hcell("人数", 1, "50px")}${hcell("職種", 1, "60px")}${hcell("就業時間", 1, "90px")}
+  </tr>
+  ${(() => {
+    const empArr = r.attendees.length ? r.attendees : Array(4).fill({ name: "", jobType: "", present: true, startTime: "", endTime: "" });
+    const subArr = r.subcontractors.length ? r.subcontractors : Array(4).fill({ company: "", jobType: "", workers: 0, startTime: "", endTime: "" });
+    const len = Math.max(empArr.length, subArr.length);
+    return Array.from({ length: len }).map((_, i) => {
+      const a = empArr[i] ?? { name: "", jobType: "", present: true, startTime: "", endTime: "" };
+      const s = subArr[i] ?? { company: "", jobType: "", workers: 0, startTime: "", endTime: "" };
+      return `<tr>
+        <td style="border:1px solid #555;padding:3px 6px">${esc(a.name)}</td>
+        <td style="border:1px solid #555;padding:3px 6px;width:60px">${esc(a.jobType)}</td>
+        <td style="border:1px solid #555;padding:3px 6px;text-align:center">${a.name ? esc(a.startTime) + "〜" + esc(a.endTime) : ""}</td>
+        <td style="border:1px solid #555;padding:3px 6px">${esc(s.company)}</td>
+        <td style="border:1px solid #555;padding:3px 6px;text-align:center">${s.company ? (s.workers || "") : ""}</td>
+        <td style="border:1px solid #555;padding:3px 6px">${esc(s.jobType)}</td>
+        <td style="border:1px solid #555;padding:3px 6px;text-align:center">${s.company ? esc(s.startTime) + "〜" + esc(s.endTime) : ""}</td>
+      </tr>`;
+    }).join("");
+  })()}
+  <tr>
+    ${hcell("日計（社員）")}${cell("")}${cell(empTotal + " 名", "", "font-weight:700;text-align:center")}
+    ${hcell("日計（協力業者）")}${cell(subTotal + " 名", "", "font-weight:700;text-align:center")}${cell("")}${cell("")}
+  </tr>
+</table>
+
+<table>
+  <tr>${hcell("現場出来高", 7)}</tr>
+  <tr>${hcell("工種/種別", 1, "12%")}${hcell("単位", 1, "8%")}${hcell("全数量")}${hcell("本日")}${hcell("累計")}${hcell("残数量")}${hcell("進捗率")}</tr>
+  ${progressRows}
+</table>
+
+<table>
+  <tr>${hcell("記　事", 1, "50%")}${hcell("無災害継続時間")}<td style="border:1px solid #555;padding:3px 6px;font-weight:700;text-align:right">${esc(r.disasterFreeHours ?? "")}　h</td></tr>
+  <tr><td class="pre" colspan="3" style="border:1px solid #555;padding:4px 6px;min-height:50px">${esc(r.notes)}</td></tr>
+</table>
+
+<table>
+  <tr>${hcell("サイン欄・確認欄", 5)}</tr>
+  <tr>${signCells}</tr>
+  <tr>${approvalCells}</tr>
+</table>
+
+<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
+</body></html>`;
+}
+
 function PrintView({ r, wsName, onClose }: { r: DailyReport; wsName: string; onClose: () => void }) {
+  function openPrint() {
+    const html = buildPrintHtml(r, wsName);
+    const blob = new Blob([html], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    const w = window.open(url, "_blank", "width=900,height=750");
+    if (w) { setTimeout(() => URL.revokeObjectURL(url), 10000); }
+  }
   return (
     <div>
-      {/* 画面上の操作バー（印刷では非表示） */}
-      <div className="no-print" style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+      <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
         <button className="ghost-button" onClick={onClose}>← 戻る</button>
-        <button className="ghost-button" onClick={() => window.print()}
+        <button className="ghost-button" onClick={openPrint}
           style={{ background: "var(--blue)", color: "#fff", borderColor: "var(--blue)" }}>
-          印刷 / PDF保存
+          🖨 印刷 / PDF保存
         </button>
       </div>
-
-      {/* 印刷本体 */}
-      <div className="print-body" style={{ fontFamily: "sans-serif", fontSize: 11, color: "#000", maxWidth: 900, margin: "0 auto" }}>
-        {/* タイトル */}
-        <div style={{ textAlign: "center", marginBottom: 10 }}>
-          <h1 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>工事打合簿（品質・安全日誌）</h1>
-        </div>
-
-        {/* 基本情報 */}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
-          <tbody>
-            <tr>
-              <Td label w={80}>工事名</Td>
-              <Td colSpan={3}>{wsName}</Td>
-            </tr>
-            <tr>
-              <Td label w={80}>打合日</Td><Td>{r.meetingDate}</Td>
-              <Td label w={80}>実施日</Td><Td>{r.implementDate}</Td>
-            </tr>
-            <tr>
-              <Td label w={80}>天候</Td><Td>{r.weather}</Td>
-              <Td label w={80}>進捗率</Td><Td>{r.progressRate}%（計画 {r.plannedDays}日 / 残 {r.remainingDays}日）</Td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* 作業内容 */}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
-          <tbody>
-            <tr>
-              <Td label w="50%">作業予定内容</Td>
-              <Td label w="50%">作業実施内容</Td>
-            </tr>
-            <tr>
-              <Td h={60} pre>{r.plannedWork}</Td>
-              <Td h={60} pre>{r.actualWork}</Td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* 品質安全指示事項 */}
-        {r.safetyItems.some(s => s.who) && (
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
-            <thead>
-              <tr><Td label colSpan={3}>品質安全指示事項</Td></tr>
-              <tr><Td label>誰が</Td><Td label>誰に</Td><Td label>確認及び是正状況</Td></tr>
-            </thead>
-            <tbody>
-              {r.safetyItems.filter(s => s.who).map((s, i) => (
-                <tr key={i}><Td>{s.who}</Td><Td>{s.toWhom}</Td><Td>{s.status}</Td></tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {/* 社員出面表 */}
-        {r.attendees.some(a => a.name) && (
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
-            <thead>
-              <tr><Td label colSpan={4}>社員出面表</Td></tr>
-              <tr><Td label>氏名</Td><Td label>職種</Td><Td label>出欠</Td><Td label>就業時間</Td></tr>
-            </thead>
-            <tbody>
-              {r.attendees.filter(a => a.name).map((a, i) => (
-                <tr key={i}>
-                  <Td>{a.name}</Td><Td>{a.jobType}</Td>
-                  <Td>{a.present ? "出" : "欠"}</Td>
-                  <Td>{a.startTime} ～ {a.endTime}</Td>
-                </tr>
-              ))}
-              <tr>
-                <Td label colSpan={2}>日計</Td>
-                <Td colSpan={2}>{r.attendees.filter(a => a.present).length} 名</Td>
-              </tr>
-            </tbody>
-          </table>
-        )}
-
-        {/* 協力業者 */}
-        {r.subcontractors.some(s => s.company) && (
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
-            <thead>
-              <tr><Td label colSpan={4}>協力業者就業表</Td></tr>
-              <tr><Td label>業者名</Td><Td label>工種</Td><Td label>実施人員</Td><Td label>就業時間</Td></tr>
-            </thead>
-            <tbody>
-              {r.subcontractors.filter(s => s.company).map((s, i) => (
-                <tr key={i}>
-                  <Td>{s.company}</Td><Td>{s.jobType}</Td>
-                  <Td>{s.workers}名</Td><Td>{s.startTime} ～ {s.endTime}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {/* 使用機械 */}
-        {r.equipment.some(e => e.name) && (
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
-            <thead>
-              <tr><Td label colSpan={3}>使用機械</Td></tr>
-              <tr><Td label>機械名称</Td><Td label>台数</Td><Td label>給油量(ℓ)</Td></tr>
-            </thead>
-            <tbody>
-              {r.equipment.filter(e => e.name).map((e, i) => (
-                <tr key={i}><Td>{e.name}</Td><Td>{e.count}台</Td><Td>{e.fuel}</Td></tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {/* 使用資材 */}
-        {r.materials.some(m => m.name) && (
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
-            <thead>
-              <tr><Td label colSpan={7}>使用資材</Td></tr>
-              <tr>
-                <Td label>資材名称</Td><Td label>種類</Td>
-                <Td label>受入(本日)</Td><Td label>受入(累計)</Td>
-                <Td label>使用(本日)</Td><Td label>使用(累計)</Td><Td label>残量</Td>
-              </tr>
-            </thead>
-            <tbody>
-              {r.materials.filter(m => m.name).map((m, i) => (
-                <tr key={i}>
-                  <Td>{m.name}</Td><Td>{m.type}</Td>
-                  <Td align="right">{m.receivedToday}</Td><Td align="right">{m.receivedTotal}</Td>
-                  <Td align="right">{m.usedToday}</Td><Td align="right">{m.usedTotal}</Td>
-                  <Td align="right">{m.remaining}</Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-
-        {/* 特記事項 */}
-        {r.notes && (
-          <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
-            <tbody>
-              <tr><Td label>報告事項・特記事項</Td></tr>
-              <tr><Td h={50} pre>{r.notes}</Td></tr>
-            </tbody>
-          </table>
-        )}
-
-        {/* 承認欄 */}
-        <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 8 }}>
-          <thead>
-            <tr><Td label colSpan={5}>承認欄</Td></tr>
-            <tr>{APPROVAL_ROLES.map(role => <Td key={role} label>{role}</Td>)}</tr>
-          </thead>
-          <tbody>
-            <tr>
-              {APPROVAL_ROLES.map(role => (
-                <td key={role} style={{ border: "1px solid #333", padding: 4, height: 36, textAlign: "center", fontSize: 18 }}>
-                  {r.approvals?.[role] ? "✓" : ""}
-                </td>
-              ))}
-            </tr>
-          </tbody>
-        </table>
+      <div className="panel" style={{ padding: 20, fontSize: 13, color: "var(--muted)", textAlign: "center" }}>
+        「印刷 / PDF保存」ボタンを押すと、工事打合簿フォーマットの印刷プレビューが開きます。
       </div>
-
-      <style>{`
-        @media print {
-          .no-print { display: none !important; }
-          body { margin: 0; }
-          .print-body { max-width: 100% !important; }
-        }
-      `}</style>
     </div>
   );
 }
@@ -585,20 +565,24 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
       {/* 協力業者 */}
       <div className="panel" style={{ marginBottom: 14 }}>
         <SectionTitle>協力業者就業表</SectionTitle>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 60px 1fr 1fr auto", gap: 6, marginBottom: 4 }}>
-          {["業者名", "工種", "人員", "開始", "終了", ""].map(h => <div key={h} style={{ fontSize: 11, color: "var(--muted)" }}>{h}</div>)}
+        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 2fr 1.5fr 70px 80px 80px 1fr 1fr auto", gap: 6, marginBottom: 4 }}>
+          {["業者名", "工種", "作業内容", "使用機械", "台数", "累計", "人員", "開始", "終了", ""].map(h => <div key={h} style={{ fontSize: 10, color: "var(--muted)" }}>{h}</div>)}
         </div>
         {form.subcontractors.map((s, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 60px 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 2fr 1.5fr 70px 80px 80px 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
             <Inp value={s.company} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { company: v })} placeholder="業者名" />
             <Inp value={s.jobType} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { jobType: v })} placeholder="工種" />
+            <Inp value={s.workContent ?? ""} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { workContent: v })} placeholder="作業内容" />
+            <Inp value={s.machineName ?? ""} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { machineName: v })} placeholder="機械名" />
+            <Inp value={s.machineCount ?? 0} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { machineCount: Number(v) })} />
+            <Inp value={s.machineCumCount ?? 0} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { machineCumCount: Number(v) })} />
             <Inp value={s.workers} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { workers: Number(v) })} />
             <Inp value={s.startTime} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { startTime: v })} />
             <Inp value={s.endTime} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { endTime: v })} />
             {delBtn("subcontractors", i)}
           </div>
         ))}
-        <button className="ghost-button" onClick={() => addRow<DailyReportSubcontractor>("subcontractors", { company: "", jobType: "", workers: 1, startTime: "08:00", endTime: "17:00" })} style={{ fontSize: 12 }}>＋ 行追加</button>
+        <button className="ghost-button" onClick={() => addRow<DailyReportSubcontractor>("subcontractors", { company: "", jobType: "", workContent: "", machineName: "", machineCount: 0, machineCumCount: 0, workers: 1, startTime: "08:00", endTime: "17:00" })} style={{ fontSize: 12 }}>＋ 行追加</button>
       </div>
 
       {/* 使用機械 */}
@@ -639,9 +623,66 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
         <button className="ghost-button" onClick={() => addRow<DailyReportMaterial>("materials", { name: "", type: "", receivedToday: 0, receivedTotal: 0, usedToday: 0, usedTotal: 0, remaining: 0 })} style={{ fontSize: 12 }}>＋ 行追加</button>
       </div>
 
+      {/* 現場出来高 */}
+      <div className="panel" style={{ marginBottom: 14 }}>
+        <SectionTitle>現場出来高</SectionTitle>
+        <div style={{ display: "grid", gridTemplateColumns: "1.5fr 80px 1fr 1fr 1fr 1fr 80px auto", gap: 6, marginBottom: 4 }}>
+          {["工種/種別", "単位", "全数量", "本日", "累計", "残数量", "進捗率(%)", ""].map(h => <div key={h} style={{ fontSize: 10, color: "var(--muted)" }}>{h}</div>)}
+        </div>
+        {(form.progressItems ?? []).map((p, i) => (
+          <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 80px 1fr 1fr 1fr 1fr 80px auto", gap: 6, marginBottom: 6 }}>
+            <Inp value={p.caseType} onChange={v => {
+              const items = [...(form.progressItems ?? [])];
+              items[i] = { ...items[i], caseType: v };
+              setF({ progressItems: items });
+            }} placeholder="CASE-A" />
+            <Inp value={p.unit} onChange={v => {
+              const items = [...(form.progressItems ?? [])];
+              items[i] = { ...items[i], unit: v };
+              setF({ progressItems: items });
+            }} placeholder="本" />
+            <Inp value={p.totalQty} onChange={v => {
+              const items = [...(form.progressItems ?? [])];
+              items[i] = { ...items[i], totalQty: Number(v) };
+              setF({ progressItems: items });
+            }} />
+            <Inp value={p.todayQty} onChange={v => {
+              const items = [...(form.progressItems ?? [])];
+              items[i] = { ...items[i], todayQty: Number(v) };
+              setF({ progressItems: items });
+            }} />
+            <Inp value={p.cumQty} onChange={v => {
+              const items = [...(form.progressItems ?? [])];
+              items[i] = { ...items[i], cumQty: Number(v) };
+              setF({ progressItems: items });
+            }} />
+            <Inp value={p.remainQty} onChange={v => {
+              const items = [...(form.progressItems ?? [])];
+              items[i] = { ...items[i], remainQty: Number(v) };
+              setF({ progressItems: items });
+            }} />
+            <Inp value={p.progress} onChange={v => {
+              const items = [...(form.progressItems ?? [])];
+              items[i] = { ...items[i], progress: Number(v) };
+              setF({ progressItems: items });
+            }} />
+            <button style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }} onClick={() => {
+              setF({ progressItems: (form.progressItems ?? []).filter((_, j) => j !== i) });
+            }}>✕</button>
+          </div>
+        ))}
+        <button className="ghost-button" onClick={() => setF({ progressItems: [...(form.progressItems ?? []), { caseType: "", unit: "本", totalQty: 0, todayQty: 0, cumQty: 0, remainQty: 0, progress: 0 }] })} style={{ fontSize: 12 }}>＋ 行追加</button>
+      </div>
+
       {/* 特記事項 */}
       <div className="panel" style={{ marginBottom: 14 }}>
         <SectionTitle>報告事項・特記事項</SectionTitle>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
+          <label style={{ fontSize: 12, color: "var(--muted)", whiteSpace: "nowrap" }}>無災害継続時間</label>
+          <input type="number" value={form.disasterFreeHours ?? 0} onChange={e => setF({ disasterFreeHours: Number(e.target.value) })}
+            style={{ width: 80, padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 4, fontSize: 12, background: "var(--input-bg, var(--soft))", color: "var(--text)" }} />
+          <span style={{ fontSize: 12, color: "var(--muted)" }}>h</span>
+        </div>
         <textarea value={form.notes} onChange={e => setF({ notes: e.target.value })} rows={3} placeholder="特記事項・連絡事項" style={taStyle} />
       </div>
 

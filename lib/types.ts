@@ -292,6 +292,10 @@ export interface DailyReportAttendee {
 export interface DailyReportSubcontractor {
   company: string;
   jobType: string;
+  workContent?: string;
+  machineName?: string;
+  machineCount?: number;
+  machineCumCount?: number;
   workers: number;
   startTime: string;
   endTime: string;
@@ -301,6 +305,16 @@ export interface DailyReportEquipment {
   name: string;
   count: number;
   fuel: number;
+}
+
+export interface DailyReportProgress {
+  caseType: string;
+  unit: string;
+  totalQty: number;
+  todayQty: number;
+  cumQty: number;
+  remainQty: number;
+  progress: number;
 }
 
 export interface DailyReportMaterial {
@@ -334,6 +348,8 @@ export interface DailyReport {
   createdBy: string;
   createdAt: string;
   status: "draft" | "submitted" | "approved";
+  progressItems?: DailyReportProgress[];
+  disasterFreeHours?: number;
 }
 
 export interface WorkSpace {
