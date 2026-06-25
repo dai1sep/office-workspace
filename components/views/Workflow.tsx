@@ -7,6 +7,84 @@ import { useApp } from "@/lib/context";
 import type { WorkflowRequest, WorkflowRouteStep } from "@/lib/types";
 import { uid, userName } from "@/lib/utils";
 
+function printWorkflowSlip(
+  detail: WorkflowRequest & { route: WorkflowRouteStep[] },
+  resolveUserName: (id: string) => string
+) {
+  const routeRows = detail.route.map((step, i) => {
+    const names = step.userIds.map(resolveUserName).join("、");
+    const result = step.result ?? (i === (detail.currentStep ?? 0) ? "処理待ち" : "未処理");
+    const resultColor = result === "承認" ? "#166534" : result === "却下" ? "#b91c1c" : "#555";
+    return `<tr>
+      <td>${i + 1}</td>
+      <td>${step.kind}</td>
+      <td>${step.role}</td>
+      <td>${names}</td>
+      <td style="color:${resultColor};font-weight:600">${result}</td>
+      <td>${step.completedAt ? step.completedAt.slice(0, 10) : ""}</td>
+      <td>${step.comment ?? ""}</td>
+    </tr>`;
+  }).join("");
+
+  const historyRows = (detail.history ?? []).map((h) =>
+    `<tr><td>${h.date.slice(0, 16).replace("T", " ")}</td><td>${resolveUserName(h.userId)}</td><td>${h.action}</td><td>${h.comment ?? ""}</td></tr>`
+  ).join("");
+
+  const extraFields = detail.formData ? Object.entries({
+    "代理申請": detail.formData.proxyApplicant ? resolveUserName(detail.formData.proxyApplicant) : "",
+    "現金受取人": detail.formData.cashRecipient ? resolveUserName(detail.formData.cashRecipient) : "",
+    "受取方法": detail.formData.receiveMethod ?? "",
+    "工事・案件番号": detail.formData.projectNumber ?? "",
+    "工事・案件略称": detail.formData.projectName ?? "",
+    "申請期間": detail.formData.periodStart ? `${detail.formData.periodStart} ～ ${detail.formData.periodEnd ?? ""}` : "",
+  }).filter(([, v]) => v).map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("") : "";
+
+  const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<title>${detail.number} ${detail.title}</title>
+<style>
+  body { font-family: "Yu Gothic", "Meiryo", sans-serif; font-size: 12px; margin: 24px; color: #111; }
+  h1 { font-size: 18px; text-align: center; margin: 0 0 4px; }
+  .subtitle { text-align: center; font-size: 12px; color: #555; margin-bottom: 20px; }
+  .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid #ccc; margin-bottom: 14px; }
+  .meta-grid .row { display: contents; }
+  .meta-grid th, .meta-grid td { padding: 6px 10px; border: 1px solid #ccc; }
+  .meta-grid th { background: #f0f4f8; font-weight: 600; width: 110px; }
+  .detail-box { border: 1px solid #ccc; padding: 10px 14px; min-height: 60px; white-space: pre-wrap; margin-bottom: 14px; border-radius: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
+  table th, table td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; font-size: 11px; }
+  table th { background: #f0f4f8; font-weight: 600; }
+  .section-title { font-size: 13px; font-weight: 700; margin: 14px 0 6px; border-left: 3px solid #1e3a5f; padding-left: 8px; }
+  .status-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-weight: 700;
+    background: ${detail.status === "承認済" ? "#d1fae5" : detail.status === "却下" ? "#fee2e2" : "#fffbeb"};
+    color: ${detail.status === "承認済" ? "#166534" : detail.status === "却下" ? "#b91c1c" : "#92400e"}; }
+  @media print { @page { size: A4; margin: 15mm; } }
+</style></head><body>
+<h1>申請伺書</h1>
+<div class="subtitle">出力日: ${new Date().toLocaleDateString("ja-JP")}</div>
+<table class="meta-grid" style="margin-bottom:14px">
+  <tr><th>申請番号</th><td>${detail.number}</td><th>ステータス</th><td><span class="status-badge">${detail.status}</span></td></tr>
+  <tr><th>申請種別</th><td>${detail.type}</td><th>申請日</th><td>${detail.date}</td></tr>
+  <tr><th>申請者</th><td>${resolveUserName(detail.applicant)}</td><th>所属</th><td>${detail.dept}</td></tr>
+  ${detail.amount ? `<tr><th>金額</th><td colspan="3"><strong>¥${detail.amount.toLocaleString()}</strong></td></tr>` : ""}
+  ${extraFields}
+</table>
+<div class="section-title">件名</div>
+<div style="font-size:15px;font-weight:700;margin-bottom:12px">${detail.title}</div>
+<div class="section-title">申請内容</div>
+<div class="detail-box">${detail.detail}</div>
+${routeRows ? `<div class="section-title">承認経路</div>
+<table><thead><tr><th>#</th><th>種別</th><th>役割</th><th>処理者</th><th>結果</th><th>処理日</th><th>コメント</th></tr></thead><tbody>${routeRows}</tbody></table>` : ""}
+${historyRows ? `<div class="section-title">処理履歴</div>
+<table><thead><tr><th>日時</th><th>処理者</th><th>操作</th><th>コメント</th></tr></thead><tbody>${historyRows}</tbody></table>` : ""}
+<script>window.onload = function(){ window.print(); window.onafterprint = function(){ window.close(); }; };<\/script>
+</body></html>`;
+
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank", "width=900,height=750");
+  if (w) { setTimeout(() => URL.revokeObjectURL(url), 10000); }
+}
+
 type ListMode = "latest" | "sent" | "inbox" | "pending" | "results" | "drafts";
 type WizardStep = 1 | 2 | 3;
 
@@ -162,7 +240,9 @@ export default function WorkflowView() {
       <motion.section key={mode} className="panel workflow-list" initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .2 }}>
         <div className="panel-title">{LISTS.find(([value]) => value === mode)?.[1]} <span className="muted-text">{visible.length}件</span></div>
         {visible.length === 0 && <div className="muted-text" style={{ padding: 24, textAlign: "center" }}>該当する申請はありません。</div>}
-        {visible.map((item) => <button key={item.id} onClick={() => item.draft ? openDraft(item) : setDetailId(item.id)} style={{ width: "100%", border: 0, borderBottom: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "13px 4px", textAlign: "left", display: "grid", gridTemplateColumns: "110px minmax(0, 1fr) auto", gap: 12, alignItems: "center" }}><span className="muted-text">{item.number ?? item.id}</span><div><strong>{item.title}</strong><div className="muted-text">{item.type} / {userName(state, item.applicant)} / {item.dept} / {item.date}</div></div><span style={{ padding: "4px 8px", borderRadius: 5, background: resultTone(item.status), fontSize: 11 }}>{item.status}</span></button>)}
+        <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.045 } } }} initial="hidden" animate="show">
+        {visible.map((item) => <motion.button variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { duration: 0.17 } } }} whileHover={{ backgroundColor: "var(--soft)" }} key={item.id} onClick={() => item.draft ? openDraft(item) : setDetailId(item.id)} style={{ width: "100%", border: 0, borderBottom: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "13px 4px", textAlign: "left", display: "grid", gridTemplateColumns: "110px minmax(0, 1fr) auto", gap: 12, alignItems: "center" }}><span className="muted-text">{item.number ?? item.id}</span><div><strong>{item.title}</strong><div className="muted-text">{item.type} / {userName(state, item.applicant)} / {item.dept} / {item.date}</div></div><span style={{ padding: "4px 8px", borderRadius: 5, background: resultTone(item.status), fontSize: 11 }}>{item.status}</span></motion.button>)}
+        </motion.div>
       </motion.section>
 
       <Modal open={formOpen} onClose={() => setFormOpen(false)} title="申請の作成" width={820}>
@@ -180,7 +260,7 @@ export default function WorkflowView() {
         {wizard === 3 && <div style={{ display: "grid", gap: 14 }}><section style={{ padding: 14, background: "var(--soft)", borderRadius: 8 }}><div className="muted-text">{form.type}</div><h3 style={{ margin: "4px 0 10px" }}>{form.title}</h3><div style={{ whiteSpace: "pre-wrap" }}>{form.detail}</div>{form.amount && <strong style={{ display: "block", marginTop: 10 }}>金額 ¥{Number(form.amount).toLocaleString()}</strong>}</section><div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>{Object.entries({ "代理申請": form.proxyApplicant ? userName(state, form.proxyApplicant) : "なし", "現金受取人": form.cashRecipient ? userName(state, form.cashRecipient) : "指定なし", "受取方法": form.receiveMethod, "工事・案件番号": form.projectNumber || "未入力", "工事・案件略称": form.projectName || "未入力", "申請期間": form.periodStart ? `${form.periodStart} ～ ${form.periodEnd || ""}` : "未入力" }).map(([label, value]) => <div key={label} style={{ padding: 10, borderBottom: "1px solid var(--line)" }}><span className="muted-text">{label}</span><div>{value}</div></div>)}</div><div><strong>承認経路</strong>{form.route.map((step, index) => <div key={step.id} style={{ padding: "8px 0", borderBottom: "1px solid var(--line)" }}>{index + 1}. {step.kind} / {step.role} / {step.userIds.map((id) => userName(state, id)).join("、")}</div>)}</div><div style={{ display: "flex", justifyContent: "space-between" }}><button className="ghost-button" onClick={() => setWizard(2)}>前の画面へ戻る</button><button className="ghost-button" onClick={() => save(false)} style={{ background: "var(--green)", color: "white" }}>申請する</button></div></div>}
       </Modal>
 
-      <Modal open={Boolean(detail)} onClose={() => setDetailId(null)} title="申請データの詳細" width={820}>{detail && <div style={{ display: "grid", gap: 14 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><div><div className="muted-text">{detail.number} / {detail.type}</div><h2 style={{ margin: "4px 0" }}>{detail.title}</h2><div className="muted-text">申請者 {userName(state, detail.applicant)} / {detail.dept} / {detail.date}</div></div><span style={{ alignSelf: "start", padding: "5px 9px", borderRadius: 6, background: resultTone(detail.status) }}>{detail.status}</span></div><div style={{ padding: 14, background: "var(--soft)", borderRadius: 8, whiteSpace: "pre-wrap" }}>{detail.detail}</div>{detail.amount && <div><span className="muted-text">金額</span><strong style={{ display: "block", fontSize: 18 }}>¥{detail.amount.toLocaleString()}</strong></div>}<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>{Object.entries({ "代理申請": detail.formData?.proxyApplicant ? userName(state, detail.formData.proxyApplicant) : "なし", "現金受取人": detail.formData?.cashRecipient ? userName(state, detail.formData.cashRecipient) : "指定なし", "受取方法": detail.formData?.receiveMethod || "未設定", "工事・案件番号": detail.formData?.projectNumber || "未入力", "工事・案件略称": detail.formData?.projectName || "未入力", "申請期間": detail.formData?.periodStart ? `${detail.formData.periodStart} ～ ${detail.formData.periodEnd || ""}` : "未入力" }).map(([label, value]) => <div key={label} style={{ padding: 9, borderBottom: "1px solid var(--line)" }}><span className="muted-text">{label}</span><div>{value}</div></div>)}</div><div><div className="panel-title">承認経路</div>{(detail.route ?? []).map((step, index) => <div key={step.id} style={{ display: "grid", gridTemplateColumns: "36px 100px minmax(0, 1fr) auto", gap: 8, padding: "10px 0", borderBottom: "1px solid var(--line)" }}><strong>{index + 1}</strong><span>{step.kind}</span><span>{step.role} / {step.userIds.map((id) => userName(state, id)).join("、")}</span><span className="muted-text">{step.result ?? (index === (detail.currentStep ?? 0) ? "処理待ち" : "未処理")}</span></div>)}</div>{(detail.history ?? []).length > 0 && <div><div className="panel-title">履歴</div>{(detail.history ?? []).map((item) => <div key={item.id} className="muted-text" style={{ padding: "5px 0" }}>{item.date.slice(0, 16).replace("T", " ")} / {userName(state, item.userId)} / {item.action}{item.comment ? ` / ${item.comment}` : ""}</div>)}</div>}<div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}><button className="ghost-button" onClick={exportRequest}>ファイル出力</button><button className="ghost-button" onClick={() => window.print()}>印刷</button></div>{pendingForMe && <div style={{ paddingTop: 12, borderTop: "1px solid var(--line)" }}><textarea value={decisionComment} onChange={(event) => setDecisionComment(event.target.value)} rows={3} placeholder="処理コメント" style={{ width: "100%" }} /><div style={{ display: "flex", gap: 7, justifyContent: "flex-end", marginTop: 8 }}><button className="ghost-button" onClick={() => decide("差し戻し")}>差し戻し</button><button className="ghost-button" onClick={() => decide("却下")} style={{ color: "#a33" }}>却下</button><button className="ghost-button" onClick={() => decide("承認")} style={{ background: "var(--green)", color: "white" }}>承認</button></div></div>}{detail.status === "差し戻し" && detail.applicant === me && <div style={{ paddingTop: 12, borderTop: "1px solid var(--line)" }}><div className="muted-text" style={{ marginBottom: 8 }}>この申請は差し戻されました。内容を確認のうえ再申請できます。</div><div style={{ display: "flex", gap: 8 }}><button className="ghost-button" onClick={() => { openDraft(detail); setDetailId(null); }}>内容を修正して再申請</button><button className="ghost-button" onClick={resubmit} style={{ background: "var(--blue)", color: "white" }}>そのまま再申請する</button></div></div>}</div>}</Modal>
+      <Modal open={Boolean(detail)} onClose={() => setDetailId(null)} title="申請データの詳細" width={820}>{detail && <div style={{ display: "grid", gap: 14 }}><div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}><div><div className="muted-text">{detail.number} / {detail.type}</div><h2 style={{ margin: "4px 0" }}>{detail.title}</h2><div className="muted-text">申請者 {userName(state, detail.applicant)} / {detail.dept} / {detail.date}</div></div><span style={{ alignSelf: "start", padding: "5px 9px", borderRadius: 6, background: resultTone(detail.status) }}>{detail.status}</span></div><div style={{ padding: 14, background: "var(--soft)", borderRadius: 8, whiteSpace: "pre-wrap" }}>{detail.detail}</div>{detail.amount && <div><span className="muted-text">金額</span><strong style={{ display: "block", fontSize: 18 }}>¥{detail.amount.toLocaleString()}</strong></div>}<div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>{Object.entries({ "代理申請": detail.formData?.proxyApplicant ? userName(state, detail.formData.proxyApplicant) : "なし", "現金受取人": detail.formData?.cashRecipient ? userName(state, detail.formData.cashRecipient) : "指定なし", "受取方法": detail.formData?.receiveMethod || "未設定", "工事・案件番号": detail.formData?.projectNumber || "未入力", "工事・案件略称": detail.formData?.projectName || "未入力", "申請期間": detail.formData?.periodStart ? `${detail.formData.periodStart} ～ ${detail.formData.periodEnd || ""}` : "未入力" }).map(([label, value]) => <div key={label} style={{ padding: 9, borderBottom: "1px solid var(--line)" }}><span className="muted-text">{label}</span><div>{value}</div></div>)}</div><div><div className="panel-title">承認経路</div>{(detail.route ?? []).map((step, index) => <div key={step.id} style={{ display: "grid", gridTemplateColumns: "36px 100px minmax(0, 1fr) auto", gap: 8, padding: "10px 0", borderBottom: "1px solid var(--line)" }}><strong>{index + 1}</strong><span>{step.kind}</span><span>{step.role} / {step.userIds.map((id) => userName(state, id)).join("、")}</span><span className="muted-text">{step.result ?? (index === (detail.currentStep ?? 0) ? "処理待ち" : "未処理")}</span></div>)}</div>{(detail.history ?? []).length > 0 && <div><div className="panel-title">履歴</div>{(detail.history ?? []).map((item) => <div key={item.id} className="muted-text" style={{ padding: "5px 0" }}>{item.date.slice(0, 16).replace("T", " ")} / {userName(state, item.userId)} / {item.action}{item.comment ? ` / ${item.comment}` : ""}</div>)}</div>}<div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}><button className="ghost-button" onClick={exportRequest}>ファイル出力</button><button className="ghost-button" onClick={() => detail && printWorkflowSlip({ ...detail, route: detail.route ?? [] }, (id) => userName(state, id))}>🖨 申請伺書を印刷</button></div>{pendingForMe && <div style={{ paddingTop: 12, borderTop: "1px solid var(--line)" }}><textarea value={decisionComment} onChange={(event) => setDecisionComment(event.target.value)} rows={3} placeholder="処理コメント" style={{ width: "100%" }} /><div style={{ display: "flex", gap: 7, justifyContent: "flex-end", marginTop: 8 }}><button className="ghost-button" onClick={() => decide("差し戻し")}>差し戻し</button><button className="ghost-button" onClick={() => decide("却下")} style={{ color: "#a33" }}>却下</button><button className="ghost-button" onClick={() => decide("承認")} style={{ background: "var(--green)", color: "white" }}>承認</button></div></div>}{detail.status === "差し戻し" && detail.applicant === me && <div style={{ paddingTop: 12, borderTop: "1px solid var(--line)" }}><div className="muted-text" style={{ marginBottom: 8 }}>この申請は差し戻されました。内容を確認のうえ再申請できます。</div><div style={{ display: "flex", gap: 8 }}><button className="ghost-button" onClick={() => { openDraft(detail); setDetailId(null); }}>内容を修正して再申請</button><button className="ghost-button" onClick={resubmit} style={{ background: "var(--blue)", color: "white" }}>そのまま再申請する</button></div></div>}</div>}</Modal>
     </div>
   );
 }

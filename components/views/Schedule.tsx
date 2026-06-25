@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import HoverCard from "@/components/HoverCard";
 import Modal from "@/components/Modal";
@@ -62,7 +62,9 @@ function occursOn(schedule: Schedule, iso: string) {
 function scheduleTime(schedule: Schedule) {
   return schedule.allDay ? "終日" : `${schedule.start}–${schedule.end}`;
 }
-function scheduleTone(type: Schedule["type"]) {
+function scheduleTone(type: Schedule["type"], id?: string) {
+  if (id?.startsWith("_todo_")) return "#fff8e1";
+  if (id?.startsWith("_wf_")) return "#f0eaff";
   return type === "meeting" ? "#e8f1ff" : type === "away" ? "#fff1df" : type === "approval" ? "#f4eaff" : "#e8f7ee";
 }
 function timeFromMinutes(total: number) {
@@ -71,13 +73,16 @@ function timeFromMinutes(total: number) {
 
 function ScheduleCard({ schedule, state, onOpen }: { schedule: Schedule; state: AppState; onOpen: () => void }) {
   const names = schedule.visibility === "private" ? "非公開" : schedule.members.map((id) => userName(state, id)).join("、");
+  const isVirtual = schedule.id.startsWith("_todo_") || schedule.id.startsWith("_wf_");
+  const label = schedule.id.startsWith("_todo_") ? "期限" : schedule.id.startsWith("_wf_") ? "承認待" : null;
   return (
     <HoverCard content={<div><strong style={{ display: "block", marginBottom: 6 }}>{schedule.title}</strong><div className="muted-text">{scheduleTime(schedule)} / {schedule.location || "場所未定"}</div><div className="muted-text" style={{ marginTop: 3 }}>{names}</div>{schedule.detail && <p style={{ margin: "9px 0 0", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>{schedule.detail}</p>}</div>}>
       <motion.button
         className="schedule-card"
         layout initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} onClick={onOpen} whileHover={{ y: -1, boxShadow: "0 7px 16px rgba(0,0,0,.11)" }} whileTap={{ scale: .985 }} transition={{ duration: .13 }}
-        style={{ width: "100%", textAlign: "left", border: "1px solid var(--line)", borderRadius: 6, padding: "5px 7px", background: scheduleTone(schedule.type), color: "var(--text)", marginBottom: 4 }}
+        style={{ width: "100%", textAlign: "left", border: isVirtual ? "1px dashed #bbb" : "1px solid var(--line)", borderRadius: 6, padding: "5px 7px", background: scheduleTone(schedule.type, schedule.id), color: "var(--text)", marginBottom: 4 }}
       >
+        {label && <span style={{ fontSize: 9, fontWeight: 700, marginRight: 4, padding: "1px 4px", borderRadius: 3, background: schedule.id.startsWith("_todo_") ? "#f59e0b" : "#8b5cf6", color: "#fff" }}>{label}</span>}
         <span className="schedule-card-time">{schedule.allDay ? "終日" : schedule.start}</span>
         <strong className="schedule-card-title">{schedule.title}</strong>
       </motion.button>
@@ -86,7 +91,7 @@ function ScheduleCard({ schedule, state, onOpen }: { schedule: Schedule; state: 
 }
 
 export default function ScheduleView() {
-  const { state, updateState, currentUser } = useApp();
+  const { state, updateState, currentUser, setView } = useApp();
   const isMobile = useIsMobile();
   const me = currentUser ?? state.currentUser;
   const [anchor, setAnchor] = useState(TODAY);
@@ -110,6 +115,34 @@ export default function ScheduleView() {
     relatedFiles: [] as string[],
   });
 
+  // Virtual events from todos (appear on due date)
+  const todoVirtual = useMemo<Schedule[]>(() =>
+    state.todos
+      .filter((t) => t.assignee === me && t.status !== "完了" && t.due)
+      .map((t) => ({
+        id: `_todo_${t.id}`, title: t.title, date: t.due,
+        start: "00:00", end: "00:00", allDay: true,
+        members: [t.assignee], type: "work" as const,
+        location: "ToDo期限", detail: t.detail ?? "",
+        scheduleMode: "single" as const, visibility: "private" as const,
+        reactions: [], facilities: [], relatedFiles: [],
+      })),
+  [state.todos, me]);
+
+  // Virtual events from pending workflow approvals (appear on submission date)
+  const wfVirtual = useMemo<Schedule[]>(() =>
+    state.workflows
+      .filter((w) => (w.approvers ?? []).includes(me) && (w.status === "申請中" || w.status === "承認待ち"))
+      .map((w) => ({
+        id: `_wf_${w.id}`, title: `${w.title}（${w.type}）`, date: w.date,
+        start: "00:00", end: "00:00", allDay: true,
+        members: [w.applicant], type: "approval" as const,
+        location: "ワークフロー", detail: w.detail ?? "",
+        scheduleMode: "single" as const, visibility: "public" as const,
+        reactions: [], facilities: [], relatedFiles: [],
+      })),
+  [state.workflows, me]);
+
   const departments = useMemo(() => ["すべて", ...Array.from(new Set(state.users.map((user) => user.dept)))], [state.users]);
   const users = useMemo(() => state.users.filter((user) => department === "すべて" || user.dept === department), [state.users, department]);
   const visibleUsers = users.slice(page * 10, page * 10 + 10);
@@ -123,7 +156,12 @@ export default function ScheduleView() {
     const text = `${schedule.title} ${schedule.detail} ${schedule.location}`.toLowerCase();
     return !query || text.includes(query.toLowerCase());
   });
-  const schedulesFor = (userId: string, iso: string) => matchingSchedules.filter((schedule) => schedule.members.includes(userId) && occursOn(schedule, iso)).sort((a, b) => a.start.localeCompare(b.start));
+  const schedulesFor = useCallback((userId: string, iso: string) => {
+    const regular = matchingSchedules.filter((s) => s.members.includes(userId) && occursOn(s, iso));
+    const todos = mode.startsWith("personal") ? todoVirtual.filter((t) => t.date === iso && t.members.includes(userId)) : [];
+    const wfs = mode.startsWith("personal") ? wfVirtual.filter((w) => w.date === iso) : [];
+    return [...regular, ...todos, ...wfs].sort((a, b) => a.start.localeCompare(b.start));
+  }, [matchingSchedules, todoVirtual, wfVirtual, mode]);
   const adjustmentSlots = useMemo(() => {
     const slots: Array<{ date: string; start: string; end: string }> = [];
     for (let day = 0; day < 14 && slots.length < 24; day += 1) {
@@ -283,7 +321,7 @@ export default function ScheduleView() {
         </div>
       </Modal>
 
-      <Modal open={Boolean(detail)} onClose={() => setDetail(null)} title="予定の詳細" width={560}>{detail && <div style={{ display: "grid", gap: 12 }}><div><span className="muted-text">{detail.date}{detail.endDate ? ` ～ ${detail.endDate}` : ""} / {scheduleTime(detail)}</span><h3 style={{ margin: "6px 0" }}>{detail.title}</h3><div>{detail.detail || "詳細はありません。"}</div></div><div className="muted-text">参加者: {detail.members.map((id) => userName(state, id)).join("、")}</div><div className="muted-text">場所: {detail.location || "未設定"}</div>{(detail.facilities ?? []).length > 0 && <div className="muted-text">設備: {(detail.facilities ?? []).map((id) => state.facilities.find((facility) => facility.id === id)?.name).filter(Boolean).join("、")}</div>}{detail.allowReactions && <button className="ghost-button" onClick={react}>{detail.reactionLabel ?? "確認しました"} {(detail.reactions ?? []).length}</button>}<div style={{ display: "flex", justifyContent: "flex-end" }}><button className="ghost-button" onClick={removeSchedule} style={{ color: "#a33" }}>予定を削除</button></div></div>}</Modal>
+      <Modal open={Boolean(detail)} onClose={() => setDetail(null)} title="予定の詳細" width={560}>{detail && <div style={{ display: "grid", gap: 12 }}><div><span className="muted-text">{detail.date}{detail.endDate ? ` ～ ${detail.endDate}` : ""} / {scheduleTime(detail)}</span><h3 style={{ margin: "6px 0" }}>{detail.title}</h3><div>{detail.detail || "詳細はありません。"}</div></div><div className="muted-text">参加者: {detail.members.map((id) => userName(state, id)).join("、")}</div><div className="muted-text">場所: {detail.location || "未設定"}</div>{(detail.facilities ?? []).length > 0 && <div className="muted-text">設備: {(detail.facilities ?? []).map((id) => state.facilities.find((facility) => facility.id === id)?.name).filter(Boolean).join("、")}</div>}{detail.allowReactions && <button className="ghost-button" onClick={react}>{detail.reactionLabel ?? "確認しました"} {(detail.reactions ?? []).length}</button>}<div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{detail.id.startsWith("_todo_") && <button className="ghost-button" onClick={() => { setDetail(null); setView("todo"); }} style={{ color: "#b45309" }}>ToDoを開く →</button>}{detail.id.startsWith("_wf_") && <button className="ghost-button" onClick={() => { setDetail(null); setView("workflow"); }} style={{ color: "#7c3aed" }}>ワークフローを開く →</button>}{!detail.id.startsWith("_") && <button className="ghost-button" onClick={removeSchedule} style={{ color: "#a33" }}>予定を削除</button>}</div></div>}</Modal>
     </div>
   );
 }

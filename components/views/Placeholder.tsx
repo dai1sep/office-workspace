@@ -22,6 +22,7 @@ const LABELS: Record<ViewId, string> = {
   search: "検索",
   licenses: "資格・許可管理",
   dailyreport: "工事日報",
+  impactmap: "インパクトマップ",
 };
 
 export default function Placeholder({ view }: { view: ViewId }) {

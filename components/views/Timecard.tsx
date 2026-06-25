@@ -43,6 +43,73 @@ function dayColor(dateStr: string): string {
   return "var(--text)";
 }
 
+function printTimecardWindow(
+  userName: string,
+  dept: string,
+  year: number,
+  month: number,
+  cards: Timecard[],
+  summary: { days: number; totalWork: number; totalOT: number }
+) {
+  const rows = [...cards].sort((a, b) => a.date.localeCompare(b.date));
+  const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
+  const fmDate = (d: string) => {
+    const day = new Date(d);
+    return `${d.slice(5).replace("-", "/")} (${DAYS[day.getDay()]})`;
+  };
+  const fmMin = (m: number) => {
+    if (!m) return "-";
+    return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, "0")}`;
+  };
+  const dayColor = (d: string) => { const w = new Date(d).getDay(); return w === 0 ? "#dc2626" : w === 6 ? "#2563eb" : "#111"; };
+  const tableRows = rows.map((tc) => {
+    const work = calcWork(tc);
+    const ot = calcOvertime(work);
+    const brk = tc.breakStart && tc.breakEnd ? `${tc.breakStart}〜${tc.breakEnd}` : tc.breakStart ? `${tc.breakStart}〜` : "-";
+    return `<tr>
+      <td style="color:${dayColor(tc.date)}">${fmDate(tc.date)}</td>
+      <td>${tc.clockIn ?? "-"}</td>
+      <td>${tc.clockOut ?? "-"}</td>
+      <td>${brk}</td>
+      <td>${fmMin(work)}</td>
+      <td style="color:${ot > 0 ? "#dc2626" : "#555"}">${ot > 0 ? `+${fmMin(ot)}` : "-"}</td>
+      <td>${tc.note ?? ""}</td>
+    </tr>`;
+  }).join("");
+
+  const html = `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<title>タイムカード ${year}年${month}月 ${userName}</title>
+<style>
+  body { font-family: "Yu Gothic", "Meiryo", sans-serif; font-size: 12px; margin: 20px; color: #111; }
+  h1 { font-size: 16px; margin: 0 0 4px; }
+  .meta { font-size: 12px; color: #555; margin-bottom: 16px; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #ccc; padding: 5px 8px; text-align: left; }
+  th { background: #f0f4f8; font-weight: 600; }
+  .summary { margin-top: 14px; font-size: 12px; }
+  .summary span { margin-right: 24px; }
+  @media print { @page { size: A4; margin: 15mm; } }
+</style></head><body>
+<h1>タイムカード — ${year}年${month}月</h1>
+<div class="meta">${userName}（${dept}）　出力日: ${new Date().toLocaleDateString("ja-JP")}</div>
+<table>
+  <thead><tr><th>日付</th><th>出勤</th><th>退勤</th><th>休憩</th><th>実働</th><th>残業</th><th>備考</th></tr></thead>
+  <tbody>${tableRows}</tbody>
+</table>
+<div class="summary">
+  <span>出勤日数: <strong>${summary.days}日</strong></span>
+  <span>総実働: <strong>${fmMin(summary.totalWork)}</strong></span>
+  <span>総残業: <strong style="color:${summary.totalOT > 0 ? "#dc2626" : "#111"}">${fmMin(summary.totalOT)}</strong></span>
+</div>
+<script>window.onload = function(){ window.print(); window.onafterprint = function(){ window.close(); }; };<\/script>
+</body></html>`;
+
+  const blob = new Blob([html], { type: "text/html" });
+  const url = URL.createObjectURL(blob);
+  const w = window.open(url, "_blank", "width=900,height=700");
+  if (w) { setTimeout(() => URL.revokeObjectURL(url), 10000); }
+}
+
 export default function TimecardView() {
   const { state, updateState } = useApp();
   const today = new Date().toISOString().slice(0, 10);
@@ -168,6 +235,18 @@ export default function TimecardView() {
 
   const todayWork = mine ? calcWork(mine) : 0;
   const todayOT = calcOvertime(todayWork);
+  const meUser = state.users.find((u) => u.id === state.currentUser);
+
+  function handlePrint() {
+    printTimecardWindow(
+      meUser?.name ?? state.currentUser,
+      meUser?.dept ?? "",
+      viewYear,
+      viewMonth,
+      monthCards,
+      monthSummary
+    );
+  }
 
   return (
     <div style={{ padding: "24px 28px", maxWidth: 900, margin: "0 auto" }}>
@@ -360,6 +439,15 @@ export default function TimecardView() {
             </button>
             <button className="ghost-button" onClick={toThisMonth}>
               今月
+            </button>
+            <button
+              className="ghost-button"
+              onClick={handlePrint}
+              disabled={monthCards.length === 0}
+              title="月次タイムカードを印刷・PDF保存"
+              style={{ marginLeft: 4 }}
+            >
+              🖨 印刷
             </button>
             <div style={{ marginLeft: "auto", display: "flex", gap: 20, fontSize: 13, flexWrap: "wrap" }}>
               <span>

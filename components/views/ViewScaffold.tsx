@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/Modal";
 import { useApp } from "@/lib/context";
 import { statusColor, uid, userName } from "@/lib/utils";
@@ -31,7 +31,7 @@ function Layout({ title, lead, actions, children }: { title: string; lead?: stri
 
 function Row({ children }: { children: React.ReactNode }) {
   return (
-    <motion.div whileHover={{ y: -1, backgroundColor: "var(--soft)" }} className="row-card" style={{ padding: 12, border: "1px solid var(--line)", borderRadius: 8, marginBottom: 8, background: "var(--panel)" }}>
+    <motion.div variants={itemVariants} whileHover={{ y: -1, backgroundColor: "var(--soft)" }} className="row-card" style={{ padding: 12, border: "1px solid var(--line)", borderRadius: 8, marginBottom: 8, background: "var(--panel)" }}>
       {children}
     </motion.div>
   );
@@ -43,6 +43,18 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function SimpleModal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: React.ReactNode }) {
   return <Modal open={open} onClose={onClose} title={title} width={560}>{children}</Modal>;
+}
+
+const listVariants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.045 } },
+};
+const itemVariants = {
+  hidden: { opacity: 0, y: 7 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.17 } },
+};
+function StaggerList({ children }: { children: React.ReactNode }) {
+  return <motion.div variants={listVariants} initial="hidden" animate="show">{children}</motion.div>;
 }
 
 export function FolderView() {
@@ -65,7 +77,7 @@ export function FolderView() {
     <Layout title="個人フォルダ" lead="自分用のメモ、下書き、未整理資料を保存します。" actions={<button className="ghost-button" onClick={() => setOpen(true)}>メモ追加</button>}>
       <section className="panel">
         <div className="panel-title">個人用メモ</div>
-        {memos.map((memo) => <Row key={memo.id}><div style={{ flex: 1 }}><strong>{memo.title}</strong><br /><span className="muted-text">{memo.body}</span></div><Badge label={memo.tag} /></Row>)}
+        <StaggerList>{memos.map((memo) => <Row key={memo.id}><div style={{ flex: 1 }}><strong>{memo.title}</strong><br /><span className="muted-text">{memo.body}</span></div><Badge label={memo.tag} /></Row>)}</StaggerList>
       </section>
       <SimpleModal open={open} onClose={() => setOpen(false)} title="メモ追加">
         <div style={{ display: "grid", gap: 12 }}>
@@ -117,7 +129,7 @@ export function BulletinView() {
         </section>
         <section className="panel">
           <div className="panel-title">掲示一覧 <span className="muted-text">{category}</span></div>
-          {filtered.map((b) => <Row key={b.id}><div style={{ flex: 1 }}><strong>{b.title}</strong><br /><span className="muted-text">{b.scope} / {b.category} / {b.author}</span></div><Badge label={b.important ? "重要" : b.read ? "確認済" : "未読"} /></Row>)}
+          <StaggerList>{filtered.map((b) => <Row key={b.id}><div style={{ flex: 1 }}><strong>{b.title}</strong><br /><span className="muted-text">{b.scope} / {b.category} / {b.author}</span></div><Badge label={b.important ? "重要" : b.read ? "確認済" : "未読"} /></Row>)}</StaggerList>
         </section>
       </div>
       <SimpleModal open={open} onClose={() => setOpen(false)} title="新規スレッド">
@@ -155,7 +167,7 @@ export function MailView() {
     <Layout title="メール管理" lead="受信、送信、下書き、保留を案件ラベルとあわせて管理します。" actions={<button className="ghost-button" onClick={() => setOpen(true)}>メール登録</button>}>
       <div style={{ display: "grid", gridTemplateColumns: "180px minmax(0, 1fr)", gap: 14 }}>
         <section className="panel"><div className="panel-title">フォルダ</div>{folders.map((f) => <button key={f} className="ghost-button" onClick={() => setFolder(f)} style={{ width: "100%", justifyContent: "space-between", marginBottom: 6, background: folder === f ? "var(--soft)" : "var(--panel)" }}>{f}<span className="muted-text">{f === "受信" ? state.mails.length : state.mails.filter((m) => m.folder === f).length}</span></button>)}</section>
-        <section className="panel"><div className="panel-title">メール一覧</div>{mails.map((m) => <Row key={m.id}><div style={{ flex: 1 }}><strong>{m.subject}</strong><br /><span className="muted-text">{m.from} / {m.date} / {m.labels.join(", ") || "ラベルなし"}</span></div><Badge label={m.read ? "確認済" : "未読"} /></Row>)}</section>
+        <section className="panel"><div className="panel-title">メール一覧</div><StaggerList>{mails.map((m) => <Row key={m.id}><div style={{ flex: 1 }}><strong>{m.subject}</strong><br /><span className="muted-text">{m.from} / {m.date} / {m.labels.join(", ") || "ラベルなし"}</span></div><Badge label={m.read ? "確認済" : "未読"} /></Row>)}</StaggerList></section>
       </div>
       <SimpleModal open={open} onClose={() => setOpen(false)} title="メール登録">
         <div style={{ display: "grid", gap: 12 }}>
@@ -188,7 +200,7 @@ export function WorkflowView() {
   return (
     <Layout title="ワークフロー" lead="申請、承認、差し戻し、履歴を状態別に管理します。" actions={<button className="ghost-button" onClick={() => setOpen(true)}>申請作成</button>}>
       <section className="panel"><div className="panel-title">状態</div><div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>{statuses.map((s) => <button key={s} className="ghost-button" onClick={() => setStatus(s)} style={{ background: status === s ? "var(--soft)" : "var(--panel)" }}>{s}</button>)}</div></section>
-      <section className="panel"><div className="panel-title">申請一覧</div>{workflows.map((w) => <Row key={w.id}><div style={{ flex: 1 }}><strong>{w.title}</strong><br /><span className="muted-text">{w.type} / {userName(state, w.applicant)} / {w.dept}</span></div>{w.amount && <span className="muted-text">¥{w.amount.toLocaleString()}</span>}<Badge label={w.status} /></Row>)}</section>
+      <section className="panel"><div className="panel-title">申請一覧</div><StaggerList>{workflows.map((w) => <Row key={w.id}><div style={{ flex: 1 }}><strong>{w.title}</strong><br /><span className="muted-text">{w.type} / {userName(state, w.applicant)} / {w.dept}</span></div>{w.amount && <span className="muted-text">¥{w.amount.toLocaleString()}</span>}<Badge label={w.status} /></Row>)}</StaggerList></section>
       <SimpleModal open={open} onClose={() => setOpen(false)} title="申請作成">
         <div style={{ display: "grid", gap: 12 }}>
           <Field label="申請種別"><input value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })} style={{ width: "100%" }} /></Field>
@@ -245,7 +257,7 @@ export function MessagesView() {
 
   return (
     <Layout title="メッセージ機能" lead="個別・グループの会話を業務情報とつなげます。" actions={<button className="ghost-button" onClick={() => setOpen(true)}>新規メッセージ</button>}>
-      <section className="panel"><div className="panel-title">メッセージ</div>{state.messages.length === 0 ? <Empty text="メッセージはまだありません。" /> : state.messages.map((m) => <Row key={m.id}><div style={{ flex: 1 }}><strong>{m.subject}</strong><br /><span className="muted-text">{userName(state, m.from)} / {m.date}</span></div><Badge label={m.read ? "確認済" : "未読"} /></Row>)}</section>
+      <section className="panel"><div className="panel-title">メッセージ</div>{state.messages.length === 0 ? <Empty text="メッセージはまだありません。" /> : <StaggerList>{state.messages.map((m) => <Row key={m.id}><div style={{ flex: 1 }}><strong>{m.subject}</strong><br /><span className="muted-text">{userName(state, m.from)} / {m.date}</span></div><Badge label={m.read ? "確認済" : "未読"} /></Row>)}</StaggerList>}</section>
       <SimpleModal open={open} onClose={() => setOpen(false)} title="新規メッセージ"><div style={{ display: "grid", gap: 12 }}><Field label="宛先"><select value={form.to} onChange={(e) => setForm({ ...form, to: e.target.value })} style={{ width: "100%" }}>{state.users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}</select></Field><Field label="件名"><input value={form.subject} onChange={(e) => setForm({ ...form, subject: e.target.value })} style={{ width: "100%" }} /></Field><Field label="本文"><textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4} style={{ width: "100%" }} /></Field><div style={{ display: "flex", gap: 8 }}><button className="ghost-button" onClick={addMessage}>送信</button><button className="ghost-button" onClick={() => setOpen(false)}>キャンセル</button></div></div></SimpleModal>
     </Layout>
   );
@@ -254,12 +266,12 @@ export function MessagesView() {
 export function AddressView() {
   const { state } = useApp();
   const entries = state.addresses.length ? state.addresses : state.users.map((u) => ({ ...u, mobile: "", id: u.id }));
-  return <Layout title="アドレス帳" lead="社員と取引先の連絡先を確認します。" actions={<input placeholder="名前・部署で検索" />}><section className="panel"><div className="panel-title">連絡先</div>{entries.map((a) => <Row key={a.id}><span className="avatar">{a.name[0]}</span><div style={{ flex: 1 }}><strong>{a.name}</strong><br /><span className="muted-text">{a.dept} / {a.role} / 内線 {a.ext}</span></div><span className="muted-text">{a.email}</span></Row>)}</section></Layout>;
+  return <Layout title="アドレス帳" lead="社員と取引先の連絡先を確認します。" actions={<input placeholder="名前・部署で検索" />}><section className="panel"><div className="panel-title">連絡先</div><StaggerList>{entries.map((a) => <Row key={a.id}><span className="avatar">{a.name[0]}</span><div style={{ flex: 1 }}><strong>{a.name}</strong><br /><span className="muted-text">{a.dept} / {a.role} / 内線 {a.ext}</span></div><span className="muted-text">{a.email}</span></Row>)}</StaggerList></section></Layout>;
 }
 
 export function FilesView() {
   const { state } = useApp();
-  return <Layout title="ファイル管理" lead="共有ファイル、版、フォルダを管理します。" actions={<button className="ghost-button">ファイル登録</button>}><section className="panel"><div className="panel-title">共有ファイル</div>{state.files.map((f) => <Row key={f.id}><div style={{ flex: 1 }}><strong>{f.name}</strong><br /><span className="muted-text">{f.folder} / {userName(state, f.owner)} / v{f.version}</span></div><span className="muted-text">{f.size}</span></Row>)}</section></Layout>;
+  return <Layout title="ファイル管理" lead="共有ファイル、版、フォルダを管理します。" actions={<button className="ghost-button">ファイル登録</button>}><section className="panel"><div className="panel-title">共有ファイル</div><StaggerList>{state.files.map((f) => <Row key={f.id}><div style={{ flex: 1 }}><strong>{f.name}</strong><br /><span className="muted-text">{f.folder} / {userName(state, f.owner)} / v{f.version}</span></div><span className="muted-text">{f.size}</span></Row>)}</StaggerList></section></Layout>;
 }
 
 export function FacilitiesView() {
@@ -284,7 +296,7 @@ export function TimecardView() {
 
 export function AdminView() {
   const { state } = useApp();
-  return <Layout title="組織・権限管理" lead="部署、役職、ロール、閲覧制御を確認します。" actions={<button className="ghost-button">ユーザー追加</button>}><section className="panel"><div className="panel-title">ユーザーと権限</div>{state.users.map((u) => <Row key={u.id}><span className="avatar">{u.name[0]}</span><div style={{ flex: 1 }}><strong>{u.name}</strong><br /><span className="muted-text">{u.dept} / {u.email}</span></div><Badge label={u.role} /></Row>)}</section></Layout>;
+  return <Layout title="組織・権限管理" lead="部署、役職、ロール、閲覧制御を確認します。" actions={<button className="ghost-button">ユーザー追加</button>}><section className="panel"><div className="panel-title">ユーザーと権限</div><StaggerList>{state.users.map((u) => <Row key={u.id}><span className="avatar">{u.name[0]}</span><div style={{ flex: 1 }}><strong>{u.name}</strong><br /><span className="muted-text">{u.dept} / {u.email}</span></div><Badge label={u.role} /></Row>)}</StaggerList></section></Layout>;
 }
 
 export function SpacesView() {
@@ -292,7 +304,7 @@ export function SpacesView() {
 }
 
 export function KnowledgeView() {
-  return <Layout title="ナレッジ" lead="会議メモ、FAQ、文書を検索・整理します。" actions={<button className="ghost-button">記事作成</button>}><section className="panel"><div className="panel-title">よく使う文書</div>{["申請ルール", "会議メモテンプレート", "社内FAQ"].map((name) => <Row key={name}><div style={{ flex: 1 }}><strong>{name}</strong><br /><span className="muted-text">更新日 2026/06/19</span></div><Badge label="確認済" /></Row>)}</section></Layout>;
+  return <Layout title="ナレッジ" lead="会議メモ、FAQ、文書を検索・整理します。" actions={<button className="ghost-button">記事作成</button>}><section className="panel"><div className="panel-title">よく使う文書</div><StaggerList>{["申請ルール", "会議メモテンプレート", "社内FAQ"].map((name) => <Row key={name}><div style={{ flex: 1 }}><strong>{name}</strong><br /><span className="muted-text">更新日 2026/06/19</span></div><Badge label="確認済" /></Row>)}</StaggerList></section></Layout>;
 }
 
 export function SearchView() {

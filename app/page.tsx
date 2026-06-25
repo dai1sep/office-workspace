@@ -28,6 +28,7 @@ import CanvasView from "@/components/views/Canvas";
 import SearchView from "@/components/views/Search";
 import LicensesView from "@/components/views/Licenses";
 import DailyReportView from "@/components/views/DailyReport";
+import ImpactMapView from "@/components/views/ImpactMap";
 import Placeholder from "@/components/views/Placeholder";
 import { useApp } from "@/lib/context";
 import { ViewId } from "@/lib/types";
@@ -53,6 +54,7 @@ const VIEW_META: Record<ViewId, { icon: string; title: string; lead: string }> =
   search: { icon: "検", title: "検索結果", lead: "業務データを横断検索します。" },
   licenses: { icon: "証", title: "資格・許可管理", lead: "建設業許可・社員資格の取得状況と有効期限を管理します。" },
   dailyreport: { icon: "日", title: "工事日報", lead: "工事打合簿・品質安全日誌を記録・提出・承認します。" },
+  impactmap: { icon: "地", title: "インパクトマップ", lead: "ゴール・アクター・インパクト・デリバラブルを視覚的に整理します。" },
 };
 
 function ViewContent({ view }: { view: ViewId }) {
@@ -95,6 +97,8 @@ function ViewContent({ view }: { view: ViewId }) {
       return <LicensesView />;
     case "dailyreport":
       return <DailyReportView />;
+    case "impactmap":
+      return <ImpactMapView />;
     default:
       return <Placeholder view={view} />;
   }

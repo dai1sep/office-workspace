@@ -17,7 +17,8 @@ export type ViewId =
   | "canvas"
   | "search"
   | "licenses"
-  | "dailyreport";
+  | "dailyreport"
+  | "impactmap";
 
 export interface User {
   id: string;
