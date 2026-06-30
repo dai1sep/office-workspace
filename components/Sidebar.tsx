@@ -52,6 +52,7 @@ export default function Sidebar() {
             key={item.view}
             className={currentView === item.view ? "active" : ""}
             disabled={locked}
+            aria-label={item.label}
             title={collapsed ? item.label : undefined}
             onClick={() => {
               setView(item.view);
@@ -60,7 +61,7 @@ export default function Sidebar() {
             whileHover={{ x: collapsed ? 0 : 2 }}
             whileTap={{ scale: 0.98 }}
           >
-            <span>{item.icon}</span>
+            <span aria-hidden="true">{item.icon}</span>
             {!collapsed && <b>{item.label}</b>}
             {!collapsed && locked && <small>管理者のみ</small>}
           </motion.button>

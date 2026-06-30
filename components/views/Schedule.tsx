@@ -149,9 +149,9 @@ export default function ScheduleView() {
   const weekStart = startOfWeek(anchor);
   const weekDates = Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
   const displayDates = mode === "groupDay" || mode === "personalDay" ? [anchor] : weekDates;
-  const mobileNameWidth = Math.min(104, Math.max(64, visibleUsers.reduce((length, user) => Math.max(length, user.name.length), 2) * 16 + 24));
-  const nameColumn = isMobile ? `${mobileNameWidth}px` : "180px";
-  const scheduleTableWidth = isMobile ? mobileNameWidth + displayDates.length * 112 : mode === "groupWeek" ? 1040 : 520;
+  const mobileNameWidth = Math.min(88, Math.max(56, visibleUsers.reduce((length, user) => Math.max(length, user.name.length), 2) * 13 + 16));
+  const nameColumn = isMobile ? `${mobileNameWidth}px` : "120px";
+  const scheduleTableWidth = isMobile ? mobileNameWidth + displayDates.length * 112 : mode === "groupWeek" ? 960 : 480;
   const matchingSchedules = state.schedules.filter((schedule) => {
     const text = `${schedule.title} ${schedule.detail} ${schedule.location}`.toLowerCase();
     return !query || text.includes(query.toLowerCase());
@@ -175,6 +175,15 @@ export default function ScheduleView() {
     }
     return slots;
   }, [state.schedules, adjustDate, adjustDuration, adjustMembers]);
+
+  // ドラッグ追加用: どのセルをドラッグ中か
+  const [dragCell, setDragCell] = useState<{ userId: string; iso: string } | null>(null);
+
+  function openFormForCell(userId: string, iso: string) {
+    setForm((prev) => ({ ...prev, date: iso, endDate: iso, members: [userId] }));
+    setFormMode("single");
+    setFormOpen(true);
+  }
 
   function resetPaging(nextDepartment: string) {
     setDepartment(nextDepartment);
@@ -269,8 +278,42 @@ export default function ScheduleView() {
               <strong style={{ padding: 12 }}>社員</strong>{displayDates.map((iso) => <strong key={iso} style={{ padding: 12, textAlign: "center", borderLeft: "1px solid var(--line)" }}>{fmt(iso)}</strong>)}
             </div>
             {visibleUsers.map((user, index) => <motion.div key={user.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(index * .025, .16) }} style={{ display: "grid", gridTemplateColumns: `${nameColumn} repeat(${displayDates.length}, minmax(112px, 1fr))`, borderBottom: "1px solid var(--line)" }}>
-              <div className="schedule-employee" style={{ padding: 12 }}><strong>{user.name}</strong><div className="muted-text schedule-employee-dept">{user.dept}</div></div>
-              {displayDates.map((iso) => <div key={iso} style={{ padding: 6, minHeight: 62, borderLeft: "1px solid var(--line)", background: iso === TODAY ? "var(--soft)" : "transparent" }}>{schedulesFor(user.id, iso).map((schedule) => <ScheduleCard key={schedule.id} schedule={schedule} state={state} onOpen={() => setDetail(schedule)} />)}</div>)}
+              <div className="schedule-employee" style={{ padding: "8px 6px", display: "flex", flexDirection: "column", alignItems: "center", gap: 4, justifyContent: "center" }}>
+                <div style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--accent)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 700, flexShrink: 0 }}>{user.name.slice(0, 1)}</div>
+                <strong title={user.name} style={{ maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11, display: "block", textAlign: "center" }}>{user.name}</strong>
+                <div className="muted-text schedule-employee-dept" style={{ fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "100%" }}>{user.dept}</div>
+              </div>
+              {displayDates.map((iso) => {
+                const isDrag = dragCell?.userId === user.id && dragCell?.iso === iso;
+                return (
+                  <div
+                    key={iso}
+                    onMouseDown={() => setDragCell({ userId: user.id, iso })}
+                    onMouseUp={() => {
+                      if (dragCell?.userId === user.id && dragCell?.iso === iso) {
+                        openFormForCell(user.id, iso);
+                      }
+                      setDragCell(null);
+                    }}
+                    onMouseLeave={() => { if (dragCell?.userId === user.id) setDragCell(null); }}
+                    style={{
+                      padding: 6, minHeight: 62, borderLeft: "1px solid var(--line)",
+                      background: isDrag ? "var(--soft)" : iso === TODAY ? "color-mix(in srgb, var(--green) 6%, var(--bg))" : "transparent",
+                      cursor: "cell", position: "relative",
+                    }}
+                  >
+                    {schedulesFor(user.id, iso).map((schedule) => (
+                      <div key={schedule.id} onMouseDown={(e) => e.stopPropagation()}>
+                        <ScheduleCard schedule={schedule} state={state} onOpen={() => setDetail(schedule)} />
+                      </div>
+                    ))}
+                    {!schedulesFor(user.id, iso).length && (
+                      <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, color: "var(--line)", opacity: 0, transition: "opacity .12s" }}
+                        className="cell-add-hint">＋</span>
+                    )}
+                  </div>
+                );
+              })}
             </motion.div>)}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", padding: 12 }}>
