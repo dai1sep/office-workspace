@@ -103,6 +103,10 @@ export interface WorkflowRouteStep {
   kind: "承認" | "決裁" | "確認" | "回覧";
   role: string;
   userIds: string[];
+  // 複数処理者がいる場合の完了条件。"all"=全員承認で次へ、"any"/未設定=1名で次へ。
+  approvalMode?: "all" | "any";
+  // "all"モードでこれまでに承認した処理者。
+  approvedBy?: string[];
   completedBy?: string;
   completedAt?: string;
   result?: "承認" | "却下" | "差し戻し";
@@ -115,6 +119,18 @@ export interface WorkflowHistory {
   userId: string;
   action: string;
   comment?: string;
+}
+
+// 再利用可能な申請様式。管理者が項目・既定経路を定義し、申請時に選択する。
+export interface WorkflowTemplate {
+  id: string;
+  name: string;
+  type: string;
+  description?: string;
+  detailHint?: string;
+  // 表示する任意項目のキー（formDataのキーに対応）。
+  fields: string[];
+  defaultRoute: WorkflowRouteStep[];
 }
 
 export interface WorkflowRequest {
@@ -374,6 +390,7 @@ export interface AppState {
   schedules: Schedule[];
   bulletins: Bulletin[];
   workflows: WorkflowRequest[];
+  workflowTemplates: WorkflowTemplate[];
   todos: Todo[];
   messages: Message[];
   addresses: AddressEntry[];

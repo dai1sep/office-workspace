@@ -51,7 +51,7 @@ const VIEW_META: Record<ViewId, { icon: string; title: string; lead: string }> =
   spaces: { icon: "工", title: "工事スペース", lead: "工事現場ごとに配属者をドラッグ操作で管理します。" },
   knowledge: { icon: "知", title: "ナレッジ", lead: "会議メモ、FAQ、文書を検索・整理します。" },
   canvas: { icon: "板", title: "ホワイトボード", lead: "業務フローや会議中のアイデアを付箋で整理します。" },
-  search: { icon: "検", title: "検索結果", lead: "業務データを横断検索します。" },
+  search: { icon: "検", title: "横断検索", lead: "メール・掲示板・申請・予定・ファイルなどをまとめて検索します。" },
   licenses: { icon: "証", title: "資格・許可管理", lead: "建設業許可・社員資格の取得状況と有効期限を管理します。" },
   dailyreport: { icon: "日", title: "工事日報", lead: "工事打合簿・品質安全日誌を記録・提出・承認します。" },
   impactmap: { icon: "地", title: "インパクトマップ", lead: "ゴール・アクター・インパクト・デリバラブルを視覚的に整理します。" },

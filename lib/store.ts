@@ -35,6 +35,24 @@ const seedState: AppState = {
     { id: "w2", type: "経費", title: "交通費精算", applicant: "u3", dept: "管理部", date: TODAY, status: "確認中", amount: 12480, detail: "6月分交通費", approvers: ["u1"], approved: [], rejected: false },
     { id: "w3", type: "勤怠", title: "有給申請", applicant: "u2", dept: "制作部", date: "2026-06-21", status: "申請中", detail: "2026年6月21日 有給休暇", approvers: ["u3"], approved: [], rejected: false },
   ],
+  workflowTemplates: [
+    { id: "wt1", name: "稟議書", type: "稟議", description: "物品・契約・投資などの意思決定を伺う標準様式。", detailHint: "目的、内容、金額の根拠、効果を記載してください。", fields: ["amount", "projectNumber", "projectName"], defaultRoute: [
+      { id: "wt1-r1", kind: "承認", role: "所属長", userIds: ["u1"] },
+      { id: "wt1-r2", kind: "決裁", role: "管理責任者", userIds: ["u3"] },
+      { id: "wt1-r3", kind: "回覧", role: "経理", userIds: ["u3"] },
+    ] },
+    { id: "wt2", name: "経費精算申請書", type: "経費精算", description: "立替経費の精算を申請する様式。", detailHint: "利用日、用途、金額の内訳を記載してください。", fields: ["amount", "receiveMethod", "projectNumber"], defaultRoute: [
+      { id: "wt2-r1", kind: "承認", role: "所属長", userIds: ["u1"] },
+      { id: "wt2-r2", kind: "確認", role: "経理", userIds: ["u3"] },
+    ] },
+    { id: "wt3", name: "現金支払申請書", type: "現金申請", description: "現金での支払・受取を申請する様式。", detailHint: "支払先、金額、支払理由を記載してください。", fields: ["amount", "cashRecipient", "receiveMethod"], defaultRoute: [
+      { id: "wt3-r1", kind: "承認", role: "所属長", userIds: ["u1"] },
+      { id: "wt3-r2", kind: "決裁", role: "管理責任者", userIds: ["u3"] },
+    ] },
+    { id: "wt4", name: "休暇申請書", type: "勤怠・休暇", description: "有給・特別休暇などを申請する様式。", detailHint: "休暇の種類と理由を記載してください。", fields: ["periodStart", "periodEnd", "proxyApplicant"], defaultRoute: [
+      { id: "wt4-r1", kind: "承認", role: "所属長", userIds: ["u1"] },
+    ] },
+  ],
   todos: [
     { id: "t1", title: "営業定例の議事録確認", assignee: "u1", due: TODAY, priority: "高", status: "今日", project: "営業", detail: "承認事項と次回タスクを整理。" },
     { id: "t2", title: "採用ページ原稿修正", assignee: "u2", due: "2026-06-20", priority: "中", status: "今週", project: "採用サイト", detail: "レビュー内容を反映。" },

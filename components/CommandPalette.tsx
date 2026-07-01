@@ -7,6 +7,7 @@ import { ViewId } from "@/lib/types";
 
 const COMMANDS: { id: ViewId; icon: string; label: string; sub: string }[] = [
   { id: "dashboard", icon: "家", label: "ホーム", sub: "今日の状況を確認" },
+  { id: "search", icon: "検", label: "横断検索", sub: "業務データを横断検索" },
   { id: "schedule", icon: "予", label: "スケジュール管理", sub: "予定を確認・登録" },
   { id: "todo", icon: "済", label: "ToDo管理", sub: "タスクを確認" },
   { id: "bulletin", icon: "掲", label: "社内掲示板", sub: "お知らせを確認" },
@@ -34,10 +35,6 @@ export default function CommandPalette() {
     setOpen(false);
     setQuery("");
   }, []);
-
-  useEffect(() => {
-    setSelectedIdx(0);
-  }, [query]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -75,7 +72,7 @@ export default function CommandPalette() {
       <motion.div initial={{ opacity: 0, y: -12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} onClick={(e) => e.stopPropagation()} className="panel" style={{ width: 560, maxWidth: "92vw", padding: 0, overflow: "hidden" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 14, borderBottom: "1px solid var(--line)" }}>
           <span>検</span>
-          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={onKeyDown} placeholder="画面名や機能を検索" style={{ flex: 1, border: 0, boxShadow: "none", background: "transparent" }} />
+          <input autoFocus value={query} onChange={(e) => { setQuery(e.target.value); setSelectedIdx(0); }} onKeyDown={onKeyDown} placeholder="画面名や機能を検索" style={{ flex: 1, border: 0, boxShadow: "none", background: "transparent" }} />
         </div>
         <div style={{ padding: 8, maxHeight: 420, overflow: "auto" }}>
           {filtered.map((command, index) => (
