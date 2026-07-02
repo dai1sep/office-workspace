@@ -154,6 +154,7 @@ export interface WorkflowRequest {
   formData?: Record<string, string>;
   relatedFiles?: string[];
   history?: WorkflowHistory[];
+  templateId?: string;
 }
 
 export interface Todo {

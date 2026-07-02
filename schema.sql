@@ -92,7 +92,20 @@ CREATE TABLE IF NOT EXISTS workflows (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- ワークフロー申請様式（テンプレート）
+CREATE TABLE IF NOT EXISTS workflow_templates (
+  id            TEXT PRIMARY KEY,
+  name          TEXT NOT NULL,
+  type          TEXT NOT NULL DEFAULT 'その他',
+  description   TEXT,
+  detail_hint   TEXT,
+  fields        JSONB NOT NULL DEFAULT '[]',
+  default_route JSONB NOT NULL DEFAULT '[]',
+  created_at    TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- 既存環境向けの追加列。新規環境では上記CREATE TABLEに含まれる。
+ALTER TABLE workflows ADD COLUMN IF NOT EXISTS template_id TEXT;
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS all_day BOOLEAN NOT NULL DEFAULT false;
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS visibility TEXT NOT NULL DEFAULT 'public';
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS facilities JSONB NOT NULL DEFAULT '[]';
@@ -225,6 +238,7 @@ ALTER TABLE reservations  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE timecards     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE addresses     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workflow_templates ENABLE ROW LEVEL SECURITY;
 
 -- 開発中は全員読み書き可（認証実装後に絞る）
 CREATE POLICY "allow_all_dev" ON users         FOR ALL USING (true) WITH CHECK (true);
@@ -239,3 +253,4 @@ CREATE POLICY "allow_all_dev" ON reservations  FOR ALL USING (true) WITH CHECK (
 CREATE POLICY "allow_all_dev" ON timecards     FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON audit_logs    FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON addresses     FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON workflow_templates FOR ALL USING (true) WITH CHECK (true);

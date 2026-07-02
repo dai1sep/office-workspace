@@ -10,6 +10,7 @@ import {
   upsertSchedule, deleteSchedule,
   upsertBulletin,
   upsertWorkflow,
+  upsertWorkflowTemplate, deleteWorkflowTemplate,
   upsertMail, deleteMail,
   upsertFile, deleteFile,
   upsertTimecard,
@@ -52,6 +53,15 @@ export function syncToSupabase(prev: AppState, next: AppState) {
     const old = prev.workflows.find((x) => x.id === w.id);
     if (!old || JSON.stringify(old) !== JSON.stringify(w)) upsertWorkflow(w).catch(console.error);
   });
+
+  // --- WorkflowTemplate ---
+  const prevTplIds = ids(prev.workflowTemplates);
+  const nextTplIds = ids(next.workflowTemplates);
+  next.workflowTemplates.forEach((t) => {
+    const old = prev.workflowTemplates.find((x) => x.id === t.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(t)) upsertWorkflowTemplate(t).catch(console.error);
+  });
+  prevTplIds.forEach((id) => { if (!nextTplIds.has(id)) deleteWorkflowTemplate(id).catch(console.error); });
 
   // --- Mail ---
   const prevMailIds = ids(prev.mails);

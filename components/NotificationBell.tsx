@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useApp } from "@/lib/context";
 import { TODAY } from "@/lib/store";
 import { ViewId } from "@/lib/types";
+import { isWorkflowPendingFor } from "@/lib/utils";
 
 interface Notice {
   id: string;
@@ -18,9 +19,10 @@ export default function NotificationBell() {
   const { state, currentUser, setView } = useApp();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const me = currentUser ?? state.currentUser;
   const notices: Notice[] = [
     ...state.workflows
-      .filter((w) => w.status === "申請中" || w.status === "承認待ち")
+      .filter((w) => isWorkflowPendingFor(w, me))
       .slice(0, 3)
       .map((w) => ({ id: `w-${w.id}`, title: "承認確認", body: w.title, time: w.date, view: "workflow" as ViewId })),
     ...state.bulletins

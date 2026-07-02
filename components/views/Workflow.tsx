@@ -205,7 +205,12 @@ export default function WorkflowView() {
     setSelectedIds((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }
   function toggleSelectAll() {
-    setSelectedIds((prev) => prev.size === visible.length ? new Set() : new Set(visible.map((item) => item.id)));
+    const allVisibleSelected = visible.length > 0 && visible.every((item) => selectedIds.has(item.id));
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      visible.forEach((item) => (allVisibleSelected ? next.delete(item.id) : next.add(item.id)));
+      return next;
+    });
   }
   function updateRoute(id: string, patch: Partial<WorkflowRouteStep>) {
     setForm((prev) => ({ ...prev, route: prev.route.map((step) => step.id === id ? { ...step, ...patch } : step) }));
@@ -225,7 +230,7 @@ export default function WorkflowView() {
   function openDraft(item: WorkflowRequest) {
     setEditingId(item.id);
     setForm({
-      templateId: "", type: item.type, title: item.title, amount: item.amount ? String(item.amount) : "", detail: item.detail,
+      templateId: item.templateId ?? "", type: item.type, title: item.title, amount: item.amount ? String(item.amount) : "", detail: item.detail,
       proxyApplicant: item.formData?.proxyApplicant ?? "", cashRecipient: item.formData?.cashRecipient ?? "",
       receiveMethod: item.formData?.receiveMethod ?? "振込", projectNumber: item.formData?.projectNumber ?? "",
       projectName: item.formData?.projectName ?? "", periodStart: item.formData?.periodStart ?? "", periodEnd: item.formData?.periodEnd ?? "",
@@ -239,11 +244,20 @@ export default function WorkflowView() {
     return {
       id: existing?.id ?? uid("w"), number: existing?.number ?? numberFor(state.workflows.length), type: form.type, title: form.title.trim(),
       applicant: me, dept: state.users.find((user) => user.id === me)?.dept ?? "", date: existing?.date ?? now.slice(0, 10), updatedAt: now,
-      status: draft ? "下書き" : "申請中", amount: form.amount ? Number(form.amount) : undefined, detail: form.detail,
+      status: draft ? "下書き" : "申請中", amount: showField("amount") && form.amount ? Number(form.amount) : undefined, detail: form.detail,
       approvers: form.route.flatMap((step) => step.userIds), approved: [], rejected: false, draft, currentStep: 0, route: form.route,
-      formData: { proxyApplicant: form.proxyApplicant, cashRecipient: form.cashRecipient, receiveMethod: form.receiveMethod, projectNumber: form.projectNumber, projectName: form.projectName, periodStart: form.periodStart, periodEnd: form.periodEnd },
+      formData: {
+        proxyApplicant: showField("proxyApplicant") ? form.proxyApplicant : "",
+        cashRecipient: showField("cashRecipient") ? form.cashRecipient : "",
+        receiveMethod: showField("receiveMethod") ? form.receiveMethod : "",
+        projectNumber: showField("projectNumber") ? form.projectNumber : "",
+        projectName: showField("projectName") ? form.projectName : "",
+        periodStart: showField("periodStart") ? form.periodStart : "",
+        periodEnd: showField("periodEnd") ? form.periodEnd : "",
+      },
       relatedFiles: form.relatedFiles,
       history: [{ id: uid("wh"), date: now, userId: me, action: draft ? "下書き保存" : "申請" }],
+      templateId: form.templateId || undefined,
     };
   }
   function save(draft: boolean) {
@@ -304,7 +318,7 @@ export default function WorkflowView() {
     const now = new Date().toISOString();
     updateState((prev) => ({ ...prev, workflows: prev.workflows.map((item) => {
       if (item.id !== detail.id) return item;
-      const route = routeFor(item).map((step) => ({ ...step, completedBy: undefined, completedAt: undefined, result: undefined, comment: undefined }));
+      const route = routeFor(item).map((step) => ({ ...step, completedBy: undefined, completedAt: undefined, result: undefined, comment: undefined, approvedBy: [] }));
       return { ...item, route, status: "申請中", currentStep: 0, rejected: false, updatedAt: now, history: [...(item.history ?? []), { id: uid("wh"), date: now, userId: me, action: "再申請" }] };
     }) }));
     setDetailId(null);
@@ -332,7 +346,7 @@ export default function WorkflowView() {
         {mode === "pending" && visible.length > 0 && (
           <div style={{ display: "flex", gap: 10, alignItems: "center", padding: "8px 4px", borderBottom: "1px solid var(--line)" }}>
             <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 12 }}>
-              <input type="checkbox" checked={selectedIds.size === visible.length} onChange={toggleSelectAll} />全選択
+              <input type="checkbox" checked={visible.length > 0 && visible.every((item) => selectedIds.has(item.id))} onChange={toggleSelectAll} />全選択
             </label>
             <span className="muted-text">{selectedIds.size}件選択中</span>
             <button className="ghost-button" disabled={selectedIds.size === 0} onClick={bulkApprove} style={{ marginLeft: "auto", background: selectedIds.size ? "var(--green)" : "var(--panel)", color: selectedIds.size ? "white" : "var(--muted)" }}>選択を一括承認</button>

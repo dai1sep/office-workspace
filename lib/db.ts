@@ -6,7 +6,7 @@
 
 import { supabase } from "./supabase";
 import type {
-  User, Schedule, Bulletin, WorkflowRequest, Todo,
+  User, Schedule, Bulletin, WorkflowRequest, WorkflowTemplate, Todo,
   MailThread, FileEntry, Facility, FacilityReservation,
   Timecard, AuditLog, AddressEntry, AppState,
 } from "./types";
@@ -88,6 +88,18 @@ function toTimecard(r: Record<string, unknown>): Timecard {
   };
 }
 
+function toWorkflowTemplate(r: Record<string, unknown>): WorkflowTemplate {
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    type: r.type as string,
+    description: r.description as string | undefined,
+    detailHint: r.detail_hint as string | undefined,
+    fields: (r.fields as string[]) ?? [],
+    defaultRoute: (r.default_route as WorkflowTemplate["defaultRoute"]) ?? [],
+  };
+}
+
 function toAuditLog(r: Record<string, unknown>): AuditLog {
   return {
     id: r.id as string,
@@ -111,6 +123,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     { data: schedules },
     { data: bulletins },
     { data: workflows },
+    { data: workflowTemplates },
     { data: todos },
     { data: mails },
     { data: files },
@@ -124,6 +137,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     db.from("schedules").select("*").order("date"),
     db.from("bulletins").select("*").order("date", { ascending: false }),
     db.from("workflows").select("*").order("date", { ascending: false }),
+    db.from("workflow_templates").select("*").order("name"),
     db.from("todos").select("*").order("due"),
     db.from("mails").select("*").order("date", { ascending: false }),
     db.from("files").select("*").order("date", { ascending: false }),
@@ -157,8 +171,9 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
       rejected: r.rejected,
       number: r.number, updatedAt: r.updated_at, draft: r.draft ?? false,
       currentStep: r.current_step ?? 0, route: r.route ?? [], formData: r.form_data ?? {},
-      relatedFiles: r.related_files ?? [], history: r.history ?? [],
+      relatedFiles: r.related_files ?? [], history: r.history ?? [], templateId: r.template_id ?? undefined,
     })) as WorkflowRequest[],
+    workflowTemplates: (workflowTemplates ?? []).map((r) => toWorkflowTemplate(r as Record<string, unknown>)),
     todos:        (todos ?? []) as Todo[],
     mails:        (mails ?? []).map((r) => toMail(r as Record<string, unknown>)),
     files:        (files ?? []) as FileEntry[],
@@ -238,8 +253,21 @@ export async function upsertWorkflow(w: WorkflowRequest) {
     approvers: w.approvers, approved: w.approved, rejected: w.rejected,
     number: w.number, updated_at: w.updatedAt, draft: w.draft ?? false,
     current_step: w.currentStep ?? 0, route: w.route ?? [], form_data: w.formData ?? {},
-    related_files: w.relatedFiles ?? [], history: w.history ?? [],
+    related_files: w.relatedFiles ?? [], history: w.history ?? [], template_id: w.templateId ?? null,
   });
+}
+
+// --- WorkflowTemplate ---
+export async function upsertWorkflowTemplate(t: WorkflowTemplate) {
+  const db = assertSupabase();
+  await db.from("workflow_templates").upsert({
+    id: t.id, name: t.name, type: t.type, description: t.description ?? null,
+    detail_hint: t.detailHint ?? null, fields: t.fields, default_route: t.defaultRoute,
+  });
+}
+export async function deleteWorkflowTemplate(id: string) {
+  const db = assertSupabase();
+  await db.from("workflow_templates").delete().eq("id", id);
 }
 
 // --- Mail ---
@@ -334,6 +362,10 @@ export async function seedIfEmpty(state: AppState) {
       dept: w.dept, date: w.date, status: w.status,
       amount: w.amount ?? null, detail: w.detail,
       approvers: w.approvers, approved: w.approved, rejected: w.rejected,
+    }))),
+    db.from("workflow_templates").insert(state.workflowTemplates.map((t) => ({
+      id: t.id, name: t.name, type: t.type, description: t.description ?? null,
+      detail_hint: t.detailHint ?? null, fields: t.fields, default_route: t.defaultRoute,
     }))),
     db.from("mails").insert(state.mails.map((m) => ({
       id: m.id, subject: m.subject, from_addr: m.from,
