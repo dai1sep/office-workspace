@@ -214,6 +214,81 @@ CREATE TABLE IF NOT EXISTS audit_logs (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 安全書類：下請業者マスタ
+CREATE TABLE IF NOT EXISTS subcontractors (
+  id                      TEXT PRIMARY KEY,
+  company_name            TEXT NOT NULL,
+  representative          TEXT NOT NULL DEFAULT '',
+  address                 TEXT,
+  phone                   TEXT,
+  license_category        TEXT,
+  license_number          TEXT,
+  license_issued_date     TEXT,
+  job_type                TEXT NOT NULL DEFAULT '',
+  safety_officer          TEXT,
+  chief_engineer          TEXT,
+  specialist_engineer     TEXT,
+  registered_skilled_worker TEXT,
+  created_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 安全書類：下請負業者編成表（全建統一様式第１号－乙）
+CREATE TABLE IF NOT EXISTS org_charts (
+  id            TEXT PRIMARY KEY,
+  workspace_id  TEXT NOT NULL,
+  created_date  TEXT NOT NULL,
+  entries       JSONB NOT NULL DEFAULT '[]',
+  created_by    TEXT NOT NULL,
+  created_at    TEXT NOT NULL,
+  updated_at    TEXT
+);
+
+-- 安全書類：施工体制台帳
+CREATE TABLE IF NOT EXISTS system_ledgers (
+  id                                    TEXT PRIMARY KEY,
+  workspace_id                          TEXT NOT NULL,
+  subcontractor_id                      TEXT,
+  created_date                          TEXT NOT NULL,
+  prime_company_name                    TEXT NOT NULL DEFAULT '',
+  prime_address                         TEXT NOT NULL DEFAULT '',
+  prime_phone                           TEXT,
+  prime_representative                  TEXT NOT NULL DEFAULT '',
+  prime_license_category                TEXT NOT NULL DEFAULT '',
+  prime_license_number                  TEXT NOT NULL DEFAULT '',
+  prime_license_issued_date             TEXT NOT NULL DEFAULT '',
+  prime_work_title                      TEXT NOT NULL DEFAULT '',
+  prime_orderer_name_address            TEXT NOT NULL DEFAULT '',
+  prime_period_start                    TEXT NOT NULL DEFAULT '',
+  prime_period_end                      TEXT NOT NULL DEFAULT '',
+  prime_contract_date                   TEXT NOT NULL DEFAULT '',
+  prime_insurance                       JSONB NOT NULL DEFAULT '{}',
+  prime_site_agent                      TEXT NOT NULL DEFAULT '',
+  prime_chief_engineer_name             TEXT NOT NULL DEFAULT '',
+  prime_chief_engineer_full_time        TEXT NOT NULL DEFAULT '専任',
+  prime_chief_engineer_qualification    TEXT NOT NULL DEFAULT '',
+  prime_specialist_engineer_name        TEXT,
+  prime_safety_officer_name             TEXT NOT NULL DEFAULT '',
+  prime_safety_promoter_name            TEXT,
+  prime_labor_manager_name              TEXT,
+  sub_company_name                      TEXT NOT NULL DEFAULT '',
+  sub_address                           TEXT NOT NULL DEFAULT '',
+  sub_representative                    TEXT NOT NULL DEFAULT '',
+  sub_license_category                  TEXT NOT NULL DEFAULT '',
+  sub_license_number                    TEXT NOT NULL DEFAULT '',
+  sub_license_issued_date               TEXT NOT NULL DEFAULT '',
+  sub_work_title                        TEXT NOT NULL DEFAULT '',
+  sub_period_start                      TEXT NOT NULL DEFAULT '',
+  sub_period_end                        TEXT NOT NULL DEFAULT '',
+  sub_contract_date                     TEXT NOT NULL DEFAULT '',
+  sub_insurance                         JSONB NOT NULL DEFAULT '{}',
+  sub_site_agent                        TEXT NOT NULL DEFAULT '',
+  sub_chief_engineer_name               TEXT NOT NULL DEFAULT '',
+  sub_safety_officer_name               TEXT NOT NULL DEFAULT '',
+  created_by                            TEXT NOT NULL,
+  created_at                            TEXT NOT NULL,
+  updated_at                            TEXT
+);
+
 -- アドレス帳（社員以外の外部連絡先）
 CREATE TABLE IF NOT EXISTS addresses (
   id     TEXT PRIMARY KEY,
@@ -239,6 +314,9 @@ ALTER TABLE timecards     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE addresses     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE workflow_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE subcontractors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE org_charts     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE system_ledgers ENABLE ROW LEVEL SECURITY;
 
 -- 開発中は全員読み書き可（認証実装後に絞る）
 CREATE POLICY "allow_all_dev" ON users         FOR ALL USING (true) WITH CHECK (true);
@@ -254,3 +332,6 @@ CREATE POLICY "allow_all_dev" ON timecards     FOR ALL USING (true) WITH CHECK (
 CREATE POLICY "allow_all_dev" ON audit_logs    FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON addresses     FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON workflow_templates FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON subcontractors FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON org_charts     FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON system_ledgers FOR ALL USING (true) WITH CHECK (true);

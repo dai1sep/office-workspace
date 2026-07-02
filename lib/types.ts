@@ -18,7 +18,8 @@ export type ViewId =
   | "search"
   | "licenses"
   | "dailyreport"
-  | "impactmap";
+  | "impactmap"
+  | "safetydocs";
 
 export interface User {
   id: string;
@@ -265,6 +266,109 @@ export interface ConstructionLicense {
   notes: string;
 }
 
+// ── 安全書類（下請業者管理帳票） ─────────────────────────────
+// 下請業者マスタ。一度登録すれば下請負業者編成表・施工体制台帳などで使い回せる。
+export interface Subcontractor {
+  id: string;
+  companyName: string;
+  representative: string;
+  address?: string;
+  phone?: string;
+  licenseCategory?: string; // 例: "大臣　特定" / "知事　一般"
+  licenseNumber?: string; // 例: "第4100号"
+  licenseIssuedDate?: string;
+  jobType: string; // 工種・職種（例: 鋼管杭工事）
+  safetyOfficer?: string; // 安全衛生責任者
+  chiefEngineer?: string; // 主任技術者
+  specialistEngineer?: string; // 専門技術者
+  registeredSkilledWorker?: string; // 登録基幹技能者
+}
+
+// 下請負業者編成表（全建統一様式第１号－乙）の1明細。
+// tier=1（一次＝作成下請負業者）は常にslot=1で1件のみ。tier=2〜4は各slot 1〜3で最大3件。
+export interface OrgChartEntry {
+  id: string;
+  tier: 1 | 2 | 3 | 4;
+  slot: 1 | 2 | 3;
+  subcontractorId?: string;
+  jobType: string;
+  companyName: string;
+  representative: string;
+  licenseNumber: string;
+  safetyOfficer: string;
+  chiefEngineer: string;
+  specialistEngineer?: string;
+  workContent?: string; // 担当工事内容（二次以降）
+  registeredSkilledWorker?: string; // 登録基幹技能者（一次のみ）
+  hasSpecialWork?: boolean; // 特定専門工事の有無／該当
+  periodStart?: string;
+  periodEnd?: string;
+}
+
+export interface SubcontractorOrgChart {
+  id: string;
+  workspaceId: string;
+  createdDate: string;
+  entries: OrgChartEntry[];
+  createdBy: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+// 施工体制台帳。下請負人1社＝1件（自社の元請情報は共通で埋め込む）。
+export interface ConstructionSystemLedgerInsurance {
+  health: "加入" | "未加入" | "適用除外";
+  pension: "加入" | "未加入" | "適用除外";
+  employment: "加入" | "未加入" | "適用除外";
+}
+
+export interface ConstructionSystemLedger {
+  id: string;
+  workspaceId: string;
+  subcontractorId?: string;
+  createdDate: string;
+  // 元請（自社）欄
+  primeCompanyName: string;
+  primeAddress: string;
+  primePhone?: string;
+  primeRepresentative: string;
+  primeLicenseCategory: string;
+  primeLicenseNumber: string;
+  primeLicenseIssuedDate: string;
+  primeWorkTitle: string;
+  primeOrdererNameAddress: string;
+  primePeriodStart: string;
+  primePeriodEnd: string;
+  primeContractDate: string;
+  primeInsurance: ConstructionSystemLedgerInsurance;
+  primeSiteAgent: string; // 現場代理人名
+  primeChiefEngineerName: string; // 主任技術者名/監理技術者名
+  primeChiefEngineerFullTime: "専任" | "非専任";
+  primeChiefEngineerQualification: string;
+  primeSpecialistEngineerName?: string;
+  primeSafetyOfficerName: string; // 安全衛生責任者名
+  primeSafetyPromoterName?: string; // 安全衛生推進者名
+  primeLaborManagerName?: string; // 雇用管理責任者名
+  // 下請負人欄
+  subCompanyName: string;
+  subAddress: string;
+  subRepresentative: string;
+  subLicenseCategory: string;
+  subLicenseNumber: string;
+  subLicenseIssuedDate: string;
+  subWorkTitle: string;
+  subPeriodStart: string;
+  subPeriodEnd: string;
+  subContractDate: string;
+  subInsurance: ConstructionSystemLedgerInsurance;
+  subSiteAgent: string;
+  subChiefEngineerName: string;
+  subSafetyOfficerName: string;
+  createdBy: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
 export interface EmployeeCertification {
   id: string;
   name: string;
@@ -406,6 +510,9 @@ export interface AppState {
   knowledge: KnowledgeArticle[];
   workspaces: WorkSpace[];
   dailyReports: DailyReport[];
+  subcontractors: Subcontractor[];
+  orgCharts: SubcontractorOrgChart[];
+  systemLedgers: ConstructionSystemLedger[];
   uiPrefs: UiPrefs;
   bulletinSubscriptions?: string[];
 }

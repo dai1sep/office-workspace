@@ -15,6 +15,9 @@ import {
   upsertFile, deleteFile,
   upsertTimecard,
   upsertReservation, deleteReservation,
+  upsertSubcontractor, deleteSubcontractor,
+  upsertOrgChart, deleteOrgChart,
+  upsertSystemLedger, deleteSystemLedger,
 } from "./db";
 
 function ids(arr: { id: string }[]) {
@@ -95,4 +98,31 @@ export function syncToSupabase(prev: AppState, next: AppState) {
     if (!old || JSON.stringify(old) !== JSON.stringify(r)) upsertReservation(r).catch(console.error);
   });
   prevResIds.forEach((id) => { if (!nextResIds.has(id)) deleteReservation(id).catch(console.error); });
+
+  // --- Subcontractor ---
+  const prevScIds = ids(prev.subcontractors);
+  const nextScIds = ids(next.subcontractors);
+  next.subcontractors.forEach((sc) => {
+    const old = prev.subcontractors.find((x) => x.id === sc.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(sc)) upsertSubcontractor(sc).catch(console.error);
+  });
+  prevScIds.forEach((id) => { if (!nextScIds.has(id)) deleteSubcontractor(id).catch(console.error); });
+
+  // --- SubcontractorOrgChart ---
+  const prevOcIds = ids(prev.orgCharts);
+  const nextOcIds = ids(next.orgCharts);
+  next.orgCharts.forEach((c) => {
+    const old = prev.orgCharts.find((x) => x.id === c.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(c)) upsertOrgChart(c).catch(console.error);
+  });
+  prevOcIds.forEach((id) => { if (!nextOcIds.has(id)) deleteOrgChart(id).catch(console.error); });
+
+  // --- ConstructionSystemLedger ---
+  const prevSlIds = ids(prev.systemLedgers);
+  const nextSlIds = ids(next.systemLedgers);
+  next.systemLedgers.forEach((l) => {
+    const old = prev.systemLedgers.find((x) => x.id === l.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(l)) upsertSystemLedger(l).catch(console.error);
+  });
+  prevSlIds.forEach((id) => { if (!nextSlIds.has(id)) deleteSystemLedger(id).catch(console.error); });
 }

@@ -177,6 +177,39 @@ const seedState: AppState = {
       status: "submitted",
     },
   ],
+  subcontractors: [
+    { id: "sc1", companyName: "山田基礎工業株式会社", representative: "山田　太郎", address: "大阪市西区北堀江1-2-3", phone: "06-1234-5678", licenseCategory: "知事　一般", licenseNumber: "第1234号", licenseIssuedDate: "2023-04-01", jobType: "基礎工事", safetyOfficer: "山田　太郎", chiefEngineer: "山田　太郎" },
+    { id: "sc2", companyName: "有限会社　高橋鉄筋", representative: "高橋　次郎", address: "神戸市中央区海岸通4-5", phone: "078-234-5678", licenseCategory: "知事　一般", licenseNumber: "第5678号", licenseIssuedDate: "2022-09-01", jobType: "鉄筋工事", safetyOfficer: "高橋　次郎", chiefEngineer: "高橋　次郎" },
+    { id: "sc3", companyName: "株式会社　中村電設", representative: "中村　三郎", address: "大阪市住之江区南港北2-1", phone: "06-3456-7890", licenseCategory: "知事　特定", licenseNumber: "第9012号", licenseIssuedDate: "2024-01-15", jobType: "電気設備工事", safetyOfficer: "中村　三郎", chiefEngineer: "中村　三郎" },
+  ],
+  orgCharts: [
+    {
+      id: "oc1", workspaceId: "ws1", createdDate: "2026-06-01",
+      entries: [
+        { id: "oce1", tier: 1, slot: 1, jobType: "木造建方工事", companyName: "田辺建設株式会社", representative: "田辺　一郎", licenseNumber: "知事(般-4)第100号", safetyOfficer: "田中", chiefEngineer: "田中", registeredSkilledWorker: "", hasSpecialWork: false, periodStart: "2026-06-01", periodEnd: "2026-09-30" },
+        { id: "oce2", tier: 2, slot: 1, subcontractorId: "sc1", jobType: "基礎工事", companyName: "山田基礎工業株式会社", representative: "山田　太郎", licenseNumber: "第1234号", safetyOfficer: "山田　太郎", chiefEngineer: "山田　太郎", workContent: "布基礎・べた基礎打設", hasSpecialWork: false, periodStart: "2026-06-01", periodEnd: "2026-06-20" },
+        { id: "oce3", tier: 2, slot: 2, subcontractorId: "sc2", jobType: "鉄筋工事", companyName: "有限会社　高橋鉄筋", representative: "高橋　次郎", licenseNumber: "第5678号", safetyOfficer: "高橋　次郎", chiefEngineer: "高橋　次郎", workContent: "基礎配筋", hasSpecialWork: false, periodStart: "2026-06-05", periodEnd: "2026-06-18" },
+      ],
+      createdBy: "u2", createdAt: "2026-06-01",
+    },
+  ],
+  systemLedgers: [
+    {
+      id: "sl1", workspaceId: "ws1", subcontractorId: "sc1", createdDate: "2026-06-01",
+      primeCompanyName: "田辺建設株式会社", primeAddress: "大阪市住吉区長居1-1-1", primePhone: "06-9876-5432",
+      primeRepresentative: "田辺　一郎", primeLicenseCategory: "知事　一般", primeLicenseNumber: "第100号", primeLicenseIssuedDate: "2020-04-01",
+      primeWorkTitle: "田辺邸新築工事", primeOrdererNameAddress: "田辺　花子　大阪市住吉区長居1-1-1", primePeriodStart: "2026-06-01", primePeriodEnd: "2026-09-30", primeContractDate: "2026-05-20",
+      primeInsurance: { health: "加入", pension: "加入", employment: "加入" },
+      primeSiteAgent: "田中", primeChiefEngineerName: "田中", primeChiefEngineerFullTime: "専任", primeChiefEngineerQualification: "二級建築施工管理技士",
+      primeSafetyOfficerName: "田中",
+      subCompanyName: "山田基礎工業株式会社", subAddress: "大阪市西区北堀江1-2-3", subRepresentative: "山田　太郎",
+      subLicenseCategory: "知事　一般", subLicenseNumber: "第1234号", subLicenseIssuedDate: "2023-04-01",
+      subWorkTitle: "基礎工事一式", subPeriodStart: "2026-06-01", subPeriodEnd: "2026-06-20", subContractDate: "2026-05-25",
+      subInsurance: { health: "加入", pension: "加入", employment: "加入" },
+      subSiteAgent: "山田　太郎", subChiefEngineerName: "山田　太郎", subSafetyOfficerName: "山田　太郎",
+      createdBy: "u2", createdAt: "2026-06-01",
+    },
+  ],
   uiPrefs: {
     theme: "default",
     density: "standard",
