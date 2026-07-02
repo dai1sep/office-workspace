@@ -35,6 +35,24 @@ const seedState: AppState = {
     { id: "w2", type: "経費", title: "交通費精算", applicant: "u3", dept: "管理部", date: TODAY, status: "確認中", amount: 12480, detail: "6月分交通費", approvers: ["u1"], approved: [], rejected: false },
     { id: "w3", type: "勤怠", title: "有給申請", applicant: "u2", dept: "制作部", date: "2026-06-21", status: "申請中", detail: "2026年6月21日 有給休暇", approvers: ["u3"], approved: [], rejected: false },
   ],
+  workflowTemplates: [
+    { id: "wt1", name: "稟議書", type: "稟議", description: "物品・契約・投資などの意思決定を伺う標準様式。", detailHint: "目的、内容、金額の根拠、効果を記載してください。", fields: ["amount", "projectNumber", "projectName"], defaultRoute: [
+      { id: "wt1-r1", kind: "承認", role: "所属長", userIds: ["u1"] },
+      { id: "wt1-r2", kind: "決裁", role: "管理責任者", userIds: ["u3"] },
+      { id: "wt1-r3", kind: "回覧", role: "経理", userIds: ["u3"] },
+    ] },
+    { id: "wt2", name: "経費精算申請書", type: "経費精算", description: "立替経費の精算を申請する様式。", detailHint: "利用日、用途、金額の内訳を記載してください。", fields: ["amount", "receiveMethod", "projectNumber"], defaultRoute: [
+      { id: "wt2-r1", kind: "承認", role: "所属長", userIds: ["u1"] },
+      { id: "wt2-r2", kind: "確認", role: "経理", userIds: ["u3"] },
+    ] },
+    { id: "wt3", name: "現金支払申請書", type: "現金申請", description: "現金での支払・受取を申請する様式。", detailHint: "支払先、金額、支払理由を記載してください。", fields: ["amount", "cashRecipient", "receiveMethod"], defaultRoute: [
+      { id: "wt3-r1", kind: "承認", role: "所属長", userIds: ["u1"] },
+      { id: "wt3-r2", kind: "決裁", role: "管理責任者", userIds: ["u3"] },
+    ] },
+    { id: "wt4", name: "休暇申請書", type: "勤怠・休暇", description: "有給・特別休暇などを申請する様式。", detailHint: "休暇の種類と理由を記載してください。", fields: ["periodStart", "periodEnd", "proxyApplicant"], defaultRoute: [
+      { id: "wt4-r1", kind: "承認", role: "所属長", userIds: ["u1"] },
+    ] },
+  ],
   todos: [
     { id: "t1", title: "営業定例の議事録確認", assignee: "u1", due: TODAY, priority: "高", status: "今日", project: "営業", detail: "承認事項と次回タスクを整理。" },
     { id: "t2", title: "採用ページ原稿修正", assignee: "u2", due: "2026-06-20", priority: "中", status: "今週", project: "採用サイト", detail: "レビュー内容を反映。" },
@@ -158,6 +176,56 @@ const seedState: AppState = {
       createdAt: "2026-06-19",
       status: "submitted",
     },
+  ],
+  subcontractors: [
+    { id: "sc1", companyName: "山田基礎工業株式会社", representative: "山田　太郎", address: "大阪市西区北堀江1-2-3", phone: "06-1234-5678", licenseCategory: "知事　一般", licenseNumber: "第1234号", licenseIssuedDate: "2023-04-01", jobType: "基礎工事", safetyOfficer: "山田　太郎", chiefEngineer: "山田　太郎" },
+    { id: "sc2", companyName: "有限会社　高橋鉄筋", representative: "高橋　次郎", address: "神戸市中央区海岸通4-5", phone: "078-234-5678", licenseCategory: "知事　一般", licenseNumber: "第5678号", licenseIssuedDate: "2022-09-01", jobType: "鉄筋工事", safetyOfficer: "高橋　次郎", chiefEngineer: "高橋　次郎" },
+    { id: "sc3", companyName: "株式会社　中村電設", representative: "中村　三郎", address: "大阪市住之江区南港北2-1", phone: "06-3456-7890", licenseCategory: "知事　特定", licenseNumber: "第9012号", licenseIssuedDate: "2024-01-15", jobType: "電気設備工事", safetyOfficer: "中村　三郎", chiefEngineer: "中村　三郎" },
+  ],
+  orgCharts: [
+    {
+      id: "oc1", workspaceId: "ws1", createdDate: "2026-06-01",
+      entries: [
+        { id: "oce1", tier: 1, slot: 1, jobType: "木造建方工事", companyName: "田辺建設株式会社", representative: "田辺　一郎", licenseNumber: "知事(般-4)第100号", safetyOfficer: "田中", chiefEngineer: "田中", registeredSkilledWorker: "", hasSpecialWork: false, periodStart: "2026-06-01", periodEnd: "2026-09-30" },
+        { id: "oce2", tier: 2, slot: 1, subcontractorId: "sc1", jobType: "基礎工事", companyName: "山田基礎工業株式会社", representative: "山田　太郎", licenseNumber: "第1234号", safetyOfficer: "山田　太郎", chiefEngineer: "山田　太郎", workContent: "布基礎・べた基礎打設", hasSpecialWork: false, periodStart: "2026-06-01", periodEnd: "2026-06-20" },
+        { id: "oce3", tier: 2, slot: 2, subcontractorId: "sc2", jobType: "鉄筋工事", companyName: "有限会社　高橋鉄筋", representative: "高橋　次郎", licenseNumber: "第5678号", safetyOfficer: "高橋　次郎", chiefEngineer: "高橋　次郎", workContent: "基礎配筋", hasSpecialWork: false, periodStart: "2026-06-05", periodEnd: "2026-06-18" },
+      ],
+      createdBy: "u2", createdAt: "2026-06-01",
+    },
+  ],
+  systemLedgers: [
+    {
+      id: "sl1", workspaceId: "ws1", subcontractorId: "sc1", createdDate: "2026-06-01",
+      primeCompanyName: "田辺建設株式会社", primeAddress: "大阪市住吉区長居1-1-1", primePhone: "06-9876-5432",
+      primeRepresentative: "田辺　一郎", primeLicenseCategory: "知事　一般", primeLicenseNumber: "第100号", primeLicenseIssuedDate: "2020-04-01",
+      primeWorkTitle: "田辺邸新築工事", primeOrdererNameAddress: "田辺　花子　大阪市住吉区長居1-1-1", primePeriodStart: "2026-06-01", primePeriodEnd: "2026-09-30", primeContractDate: "2026-05-20",
+      primeInsurance: { health: "加入", pension: "加入", employment: "加入" },
+      primeSiteAgent: "田中", primeChiefEngineerName: "田中", primeChiefEngineerFullTime: "専任", primeChiefEngineerQualification: "二級建築施工管理技士",
+      primeSafetyOfficerName: "田中",
+      subCompanyName: "山田基礎工業株式会社", subAddress: "大阪市西区北堀江1-2-3", subRepresentative: "山田　太郎",
+      subLicenseCategory: "知事　一般", subLicenseNumber: "第1234号", subLicenseIssuedDate: "2023-04-01",
+      subWorkTitle: "基礎工事一式", subPeriodStart: "2026-06-01", subPeriodEnd: "2026-06-20", subContractDate: "2026-05-25",
+      subInsurance: { health: "加入", pension: "加入", employment: "加入" },
+      subSiteAgent: "山田　太郎", subChiefEngineerName: "山田　太郎", subSafetyOfficerName: "山田　太郎",
+      createdBy: "u2", createdAt: "2026-06-01",
+    },
+  ],
+  fieldResources: [
+    { id: "fr1", name: "バックホウ 0.45", type: "重機", status: "稼働可", maker: "コマツ PC138US" },
+    { id: "fr2", name: "ミニユンボ 0.1", type: "重機", status: "稼働可", maker: "クボタ U-10" },
+    { id: "fr3", name: "2tダンプ", type: "車両", status: "稼働可", maker: "いすゞ エルフ" },
+    { id: "fr4", name: "発電機 2.5kVA", type: "機材", status: "整備中", notes: "オイル交換予定" },
+    { id: "fr5", name: "プレートコンパクター", type: "機材", status: "稼働可" },
+    { id: "fr6", name: "鈴木（オペレーター）", type: "人員", status: "稼働可" },
+  ],
+  resourceAllocations: [
+    { id: "ra1", resourceId: "fr1", workspaceId: "ws1", date: TODAY },
+    { id: "ra2", resourceId: "fr3", workspaceId: "ws1", date: TODAY },
+    { id: "ra3", resourceId: "fr2", workspaceId: "ws2", date: TODAY },
+  ],
+  resourceInspections: [
+    { id: "ri1", resourceId: "fr1", date: "2026-06-18", inspector: "田中", result: "良", note: "始業前点検 異常なし" },
+    { id: "ri2", resourceId: "fr4", date: "2026-06-17", inspector: "鈴木", result: "要注意", note: "オイル量低下" },
   ],
   uiPrefs: {
     theme: "default",

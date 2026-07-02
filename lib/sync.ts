@@ -10,10 +10,17 @@ import {
   upsertSchedule, deleteSchedule,
   upsertBulletin,
   upsertWorkflow,
+  upsertWorkflowTemplate, deleteWorkflowTemplate,
   upsertMail, deleteMail,
   upsertFile, deleteFile,
   upsertTimecard,
   upsertReservation, deleteReservation,
+  upsertSubcontractor, deleteSubcontractor,
+  upsertOrgChart, deleteOrgChart,
+  upsertSystemLedger, deleteSystemLedger,
+  upsertFieldResource, deleteFieldResource,
+  upsertResourceAllocation, deleteResourceAllocation,
+  upsertResourceInspection, deleteResourceInspection,
 } from "./db";
 
 function ids(arr: { id: string }[]) {
@@ -53,6 +60,15 @@ export function syncToSupabase(prev: AppState, next: AppState) {
     if (!old || JSON.stringify(old) !== JSON.stringify(w)) upsertWorkflow(w).catch(console.error);
   });
 
+  // --- WorkflowTemplate ---
+  const prevTplIds = ids(prev.workflowTemplates);
+  const nextTplIds = ids(next.workflowTemplates);
+  next.workflowTemplates.forEach((t) => {
+    const old = prev.workflowTemplates.find((x) => x.id === t.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(t)) upsertWorkflowTemplate(t).catch(console.error);
+  });
+  prevTplIds.forEach((id) => { if (!nextTplIds.has(id)) deleteWorkflowTemplate(id).catch(console.error); });
+
   // --- Mail ---
   const prevMailIds = ids(prev.mails);
   const nextMailIds = ids(next.mails);
@@ -85,4 +101,58 @@ export function syncToSupabase(prev: AppState, next: AppState) {
     if (!old || JSON.stringify(old) !== JSON.stringify(r)) upsertReservation(r).catch(console.error);
   });
   prevResIds.forEach((id) => { if (!nextResIds.has(id)) deleteReservation(id).catch(console.error); });
+
+  // --- Subcontractor ---
+  const prevScIds = ids(prev.subcontractors);
+  const nextScIds = ids(next.subcontractors);
+  next.subcontractors.forEach((sc) => {
+    const old = prev.subcontractors.find((x) => x.id === sc.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(sc)) upsertSubcontractor(sc).catch(console.error);
+  });
+  prevScIds.forEach((id) => { if (!nextScIds.has(id)) deleteSubcontractor(id).catch(console.error); });
+
+  // --- SubcontractorOrgChart ---
+  const prevOcIds = ids(prev.orgCharts);
+  const nextOcIds = ids(next.orgCharts);
+  next.orgCharts.forEach((c) => {
+    const old = prev.orgCharts.find((x) => x.id === c.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(c)) upsertOrgChart(c).catch(console.error);
+  });
+  prevOcIds.forEach((id) => { if (!nextOcIds.has(id)) deleteOrgChart(id).catch(console.error); });
+
+  // --- ConstructionSystemLedger ---
+  const prevSlIds = ids(prev.systemLedgers);
+  const nextSlIds = ids(next.systemLedgers);
+  next.systemLedgers.forEach((l) => {
+    const old = prev.systemLedgers.find((x) => x.id === l.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(l)) upsertSystemLedger(l).catch(console.error);
+  });
+  prevSlIds.forEach((id) => { if (!nextSlIds.has(id)) deleteSystemLedger(id).catch(console.error); });
+
+  // --- FieldResource ---
+  const prevFrIds = ids(prev.fieldResources ?? []);
+  const nextFrIds = ids(next.fieldResources ?? []);
+  (next.fieldResources ?? []).forEach((fr) => {
+    const old = (prev.fieldResources ?? []).find((x) => x.id === fr.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(fr)) upsertFieldResource(fr).catch(console.error);
+  });
+  prevFrIds.forEach((id) => { if (!nextFrIds.has(id)) deleteFieldResource(id).catch(console.error); });
+
+  // --- ResourceAllocation ---
+  const prevRaIds = ids(prev.resourceAllocations ?? []);
+  const nextRaIds = ids(next.resourceAllocations ?? []);
+  (next.resourceAllocations ?? []).forEach((a) => {
+    const old = (prev.resourceAllocations ?? []).find((x) => x.id === a.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(a)) upsertResourceAllocation(a).catch(console.error);
+  });
+  prevRaIds.forEach((id) => { if (!nextRaIds.has(id)) deleteResourceAllocation(id).catch(console.error); });
+
+  // --- ResourceInspection ---
+  const prevRiIds = ids(prev.resourceInspections ?? []);
+  const nextRiIds = ids(next.resourceInspections ?? []);
+  (next.resourceInspections ?? []).forEach((i) => {
+    const old = (prev.resourceInspections ?? []).find((x) => x.id === i.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(i)) upsertResourceInspection(i).catch(console.error);
+  });
+  prevRiIds.forEach((id) => { if (!nextRiIds.has(id)) deleteResourceInspection(id).catch(console.error); });
 }

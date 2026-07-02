@@ -4,11 +4,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { useState } from "react";
 import { useApp } from "@/lib/context";
 import { ViewId } from "@/lib/types";
-import { initials, userName } from "@/lib/utils";
+import { initials, pendingWorkflowCount, userName } from "@/lib/utils";
 import { useIsMobile } from "@/lib/useIsMobile";
 
 const NAV_ITEMS: { view: ViewId; icon: string; label: string; adminOnly?: boolean }[] = [
   { view: "dashboard", icon: "家", label: "ホーム" },
+  { view: "search", icon: "検", label: "横断検索" },
   { view: "mail", icon: "封", label: "メール管理" },
   { view: "schedule", icon: "予", label: "スケジュール管理" },
   { view: "folder", icon: "個", label: "個人フォルダ" },
@@ -20,11 +21,13 @@ const NAV_ITEMS: { view: ViewId; icon: string; label: string; adminOnly?: boolea
   { view: "files", icon: "書", label: "ファイル管理" },
   { view: "admin", icon: "管", label: "組織・権限管理", adminOnly: true },
   { view: "spaces", icon: "工", label: "工事スペース" },
+  { view: "fieldresources", icon: "機", label: "現場リソース管理" },
   { view: "knowledge", icon: "知", label: "ナレッジ" },
   { view: "canvas", icon: "板", label: "ホワイトボード" },
   { view: "impactmap", icon: "地", label: "インパクトマップ" },
   { view: "licenses", icon: "証", label: "資格・許可管理" },
   { view: "dailyreport", icon: "日", label: "工事日報" },
+  { view: "safetydocs", icon: "盾", label: "安全書類" },
 ];
 
 const BOTTOM_TABS: ViewId[] = ["dashboard", "todo", "schedule", "bulletin", "messages"];
@@ -40,19 +43,22 @@ export default function Sidebar() {
   const { state, currentView, setView, theme, toggleTheme, sidebarCollapsed, toggleSidebar, currentUser, can } = useApp();
   const isMobile = useIsMobile();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const me = userName(state, currentUser ?? state.currentUser);
-  const meUser = state.users.find((u) => u.id === (currentUser ?? state.currentUser));
+  const meId = currentUser ?? state.currentUser;
+  const me = userName(state, meId);
+  const meUser = state.users.find((u) => u.id === meId);
+  const workflowPending = pendingWorkflowCount(state, meId);
 
   const renderMenu = (collapsed: boolean, onSelect?: () => void) => (
     <nav className="sidebar-nav">
       {NAV_ITEMS.map((item) => {
         const locked = item.adminOnly && !can("admin");
+        const badge = item.view === "workflow" ? workflowPending : 0;
         return (
           <motion.button
             key={item.view}
             className={currentView === item.view ? "active" : ""}
             disabled={locked}
-            aria-label={item.label}
+            aria-label={badge > 0 ? `${item.label}（未処理${badge}件）` : item.label}
             title={collapsed ? item.label : undefined}
             onClick={() => {
               setView(item.view);
@@ -64,6 +70,7 @@ export default function Sidebar() {
             <span aria-hidden="true">{item.icon}</span>
             {!collapsed && <b>{item.label}</b>}
             {!collapsed && locked && <small>管理者のみ</small>}
+            {badge > 0 && <em className={collapsed ? "nav-badge nav-badge-dot" : "nav-badge"}>{collapsed ? "" : badge}</em>}
           </motion.button>
         );
       })}

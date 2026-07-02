@@ -5,7 +5,7 @@ import { useState } from "react";
 import { useApp } from "@/lib/context";
 import { TODAY } from "@/lib/store";
 import { Schedule } from "@/lib/types";
-import { userName } from "@/lib/utils";
+import { isWorkflowPendingFor, userName } from "@/lib/utils";
 
 // ── Slack-style ping dot ─────────────────────────────────────────────────────
 function PingDot({ color = "#e53e3e" }: { color?: string }) {
@@ -182,7 +182,7 @@ export default function Dashboard() {
 
   const unreadMails      = state.mails.filter((m) => !m.read);
   const unreadBulletins  = state.bulletins.filter((b) => !b.read && !b.draft);
-  const pendingWorkflows = state.workflows.filter((w) => !["完了", "承認済"].includes(w.status) && !w.draft);
+  const pendingWorkflows = state.workflows.filter((w) => isWorkflowPendingFor(w, me));
   const todayTodos       = state.todos.filter((t) => t.due <= TODAY && t.status !== "完了");
   const todaySchedules   = state.schedules.filter((s) => s.date === TODAY).sort((a, b) => a.start.localeCompare(b.start));
   const employeeSchedules = todaySchedules.filter((s) => s.members.length > 0).map((s) => ({ ...s, memberNames: s.members.map((id) => userName(state, id)).join("、") }));

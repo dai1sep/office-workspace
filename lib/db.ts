@@ -6,9 +6,11 @@
 
 import { supabase } from "./supabase";
 import type {
-  User, Schedule, Bulletin, WorkflowRequest, Todo,
+  User, Schedule, Bulletin, WorkflowRequest, WorkflowTemplate, Todo,
   MailThread, FileEntry, Facility, FacilityReservation,
   Timecard, AuditLog, AddressEntry, AppState,
+  Subcontractor, SubcontractorOrgChart, ConstructionSystemLedger,
+  FieldResource, ResourceAllocation, ResourceInspection,
 } from "./types";
 
 // ────────────────────────────────────────
@@ -88,6 +90,56 @@ function toTimecard(r: Record<string, unknown>): Timecard {
   };
 }
 
+function toWorkflowTemplate(r: Record<string, unknown>): WorkflowTemplate {
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    type: r.type as string,
+    description: r.description as string | undefined,
+    detailHint: r.detail_hint as string | undefined,
+    fields: (r.fields as string[]) ?? [],
+    defaultRoute: (r.default_route as WorkflowTemplate["defaultRoute"]) ?? [],
+  };
+}
+
+function toOrgChart(r: Record<string, unknown>): SubcontractorOrgChart {
+  return {
+    id: r.id as string,
+    workspaceId: r.workspace_id as string,
+    createdDate: r.created_date as string,
+    entries: (r.entries as SubcontractorOrgChart["entries"]) ?? [],
+    createdBy: r.created_by as string,
+    createdAt: r.created_at as string,
+    updatedAt: r.updated_at as string | undefined,
+  };
+}
+
+function toSystemLedger(r: Record<string, unknown>): ConstructionSystemLedger {
+  return {
+    id: r.id as string, workspaceId: r.workspace_id as string, subcontractorId: r.subcontractor_id as string | undefined,
+    createdDate: r.created_date as string,
+    primeCompanyName: r.prime_company_name as string, primeAddress: r.prime_address as string, primePhone: r.prime_phone as string | undefined,
+    primeRepresentative: r.prime_representative as string, primeLicenseCategory: r.prime_license_category as string,
+    primeLicenseNumber: r.prime_license_number as string, primeLicenseIssuedDate: r.prime_license_issued_date as string,
+    primeWorkTitle: r.prime_work_title as string, primeOrdererNameAddress: r.prime_orderer_name_address as string,
+    primePeriodStart: r.prime_period_start as string, primePeriodEnd: r.prime_period_end as string, primeContractDate: r.prime_contract_date as string,
+    primeInsurance: r.prime_insurance as ConstructionSystemLedger["primeInsurance"],
+    primeSiteAgent: r.prime_site_agent as string, primeChiefEngineerName: r.prime_chief_engineer_name as string,
+    primeChiefEngineerFullTime: r.prime_chief_engineer_full_time as ConstructionSystemLedger["primeChiefEngineerFullTime"],
+    primeChiefEngineerQualification: r.prime_chief_engineer_qualification as string,
+    primeSpecialistEngineerName: r.prime_specialist_engineer_name as string | undefined,
+    primeSafetyOfficerName: r.prime_safety_officer_name as string,
+    primeSafetyPromoterName: r.prime_safety_promoter_name as string | undefined,
+    primeLaborManagerName: r.prime_labor_manager_name as string | undefined,
+    subCompanyName: r.sub_company_name as string, subAddress: r.sub_address as string, subRepresentative: r.sub_representative as string,
+    subLicenseCategory: r.sub_license_category as string, subLicenseNumber: r.sub_license_number as string, subLicenseIssuedDate: r.sub_license_issued_date as string,
+    subWorkTitle: r.sub_work_title as string, subPeriodStart: r.sub_period_start as string, subPeriodEnd: r.sub_period_end as string, subContractDate: r.sub_contract_date as string,
+    subInsurance: r.sub_insurance as ConstructionSystemLedger["subInsurance"],
+    subSiteAgent: r.sub_site_agent as string, subChiefEngineerName: r.sub_chief_engineer_name as string, subSafetyOfficerName: r.sub_safety_officer_name as string,
+    createdBy: r.created_by as string, createdAt: r.created_at as string, updatedAt: r.updated_at as string | undefined,
+  };
+}
+
 function toAuditLog(r: Record<string, unknown>): AuditLog {
   return {
     id: r.id as string,
@@ -96,6 +148,38 @@ function toAuditLog(r: Record<string, unknown>): AuditLog {
     action: r.action as string,
     target: r.target as string,
     detail: (r.detail as string) ?? "",
+  };
+}
+
+function toFieldResource(r: Record<string, unknown>): FieldResource {
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    type: r.type as FieldResource["type"],
+    status: r.status as FieldResource["status"],
+    maker: r.maker as string | undefined,
+    notes: r.notes as string | undefined,
+  };
+}
+
+function toResourceAllocation(r: Record<string, unknown>): ResourceAllocation {
+  return {
+    id: r.id as string,
+    resourceId: r.resource_id as string,
+    workspaceId: r.workspace_id as string,
+    date: r.date as string,
+    note: r.note as string | undefined,
+  };
+}
+
+function toResourceInspection(r: Record<string, unknown>): ResourceInspection {
+  return {
+    id: r.id as string,
+    resourceId: r.resource_id as string,
+    date: r.date as string,
+    inspector: r.inspector as string,
+    result: r.result as ResourceInspection["result"],
+    note: r.note as string | undefined,
   };
 }
 
@@ -111,6 +195,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     { data: schedules },
     { data: bulletins },
     { data: workflows },
+    { data: workflowTemplates },
     { data: todos },
     { data: mails },
     { data: files },
@@ -119,11 +204,18 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     { data: timecards },
     { data: auditLogs },
     { data: addresses },
+    { data: subcontractors },
+    { data: orgCharts },
+    { data: systemLedgers },
+    { data: fieldResources },
+    { data: resourceAllocations },
+    { data: resourceInspections },
   ] = await Promise.all([
     db.from("users").select("*").order("name"),
     db.from("schedules").select("*").order("date"),
     db.from("bulletins").select("*").order("date", { ascending: false }),
     db.from("workflows").select("*").order("date", { ascending: false }),
+    db.from("workflow_templates").select("*").order("name"),
     db.from("todos").select("*").order("due"),
     db.from("mails").select("*").order("date", { ascending: false }),
     db.from("files").select("*").order("date", { ascending: false }),
@@ -132,6 +224,12 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     db.from("timecards").select("*").order("date", { ascending: false }),
     db.from("audit_logs").select("*").order("date", { ascending: false }),
     db.from("addresses").select("*").order("name"),
+    db.from("subcontractors").select("*").order("company_name"),
+    db.from("org_charts").select("*").order("created_date", { ascending: false }),
+    db.from("system_ledgers").select("*").order("created_date", { ascending: false }),
+    db.from("field_resources").select("*").order("name"),
+    db.from("resource_allocations").select("*").order("date", { ascending: false }),
+    db.from("resource_inspections").select("*").order("date", { ascending: false }),
   ]);
 
   return {
@@ -157,8 +255,9 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
       rejected: r.rejected,
       number: r.number, updatedAt: r.updated_at, draft: r.draft ?? false,
       currentStep: r.current_step ?? 0, route: r.route ?? [], formData: r.form_data ?? {},
-      relatedFiles: r.related_files ?? [], history: r.history ?? [],
+      relatedFiles: r.related_files ?? [], history: r.history ?? [], templateId: r.template_id ?? undefined,
     })) as WorkflowRequest[],
+    workflowTemplates: (workflowTemplates ?? []).map((r) => toWorkflowTemplate(r as Record<string, unknown>)),
     todos:        (todos ?? []) as Todo[],
     mails:        (mails ?? []).map((r) => toMail(r as Record<string, unknown>)),
     files:        (files ?? []) as FileEntry[],
@@ -169,6 +268,17 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     timecards:    (timecards ?? []).map((r) => toTimecard(r as Record<string, unknown>)),
     auditLogs:    (auditLogs ?? []).map((r) => toAuditLog(r as Record<string, unknown>)),
     addresses:    (addresses ?? []) as AddressEntry[],
+    subcontractors: (subcontractors ?? []).map((r) => ({
+      id: r.id, companyName: r.company_name, representative: r.representative, address: r.address, phone: r.phone,
+      licenseCategory: r.license_category, licenseNumber: r.license_number, licenseIssuedDate: r.license_issued_date,
+      jobType: r.job_type, safetyOfficer: r.safety_officer, chiefEngineer: r.chief_engineer,
+      specialistEngineer: r.specialist_engineer, registeredSkilledWorker: r.registered_skilled_worker,
+    })) as Subcontractor[],
+    orgCharts:    (orgCharts ?? []).map((r) => toOrgChart(r as Record<string, unknown>)),
+    systemLedgers: (systemLedgers ?? []).map((r) => toSystemLedger(r as Record<string, unknown>)),
+    fieldResources: (fieldResources ?? []).map((r) => toFieldResource(r as Record<string, unknown>)),
+    resourceAllocations: (resourceAllocations ?? []).map((r) => toResourceAllocation(r as Record<string, unknown>)),
+    resourceInspections: (resourceInspections ?? []).map((r) => toResourceInspection(r as Record<string, unknown>)),
   };
 }
 
@@ -238,8 +348,21 @@ export async function upsertWorkflow(w: WorkflowRequest) {
     approvers: w.approvers, approved: w.approved, rejected: w.rejected,
     number: w.number, updated_at: w.updatedAt, draft: w.draft ?? false,
     current_step: w.currentStep ?? 0, route: w.route ?? [], form_data: w.formData ?? {},
-    related_files: w.relatedFiles ?? [], history: w.history ?? [],
+    related_files: w.relatedFiles ?? [], history: w.history ?? [], template_id: w.templateId ?? null,
   });
+}
+
+// --- WorkflowTemplate ---
+export async function upsertWorkflowTemplate(t: WorkflowTemplate) {
+  const db = assertSupabase();
+  await db.from("workflow_templates").upsert({
+    id: t.id, name: t.name, type: t.type, description: t.description ?? null,
+    detail_hint: t.detailHint ?? null, fields: t.fields, default_route: t.defaultRoute,
+  });
+}
+export async function deleteWorkflowTemplate(id: string) {
+  const db = assertSupabase();
+  await db.from("workflow_templates").delete().eq("id", id);
 }
 
 // --- Mail ---
@@ -293,6 +416,97 @@ export async function deleteReservation(id: string) {
   await db.from("reservations").delete().eq("id", id);
 }
 
+// --- Subcontractor ---
+export async function upsertSubcontractor(sc: Subcontractor) {
+  const db = assertSupabase();
+  await db.from("subcontractors").upsert({
+    id: sc.id, company_name: sc.companyName, representative: sc.representative, address: sc.address ?? null, phone: sc.phone ?? null,
+    license_category: sc.licenseCategory ?? null, license_number: sc.licenseNumber ?? null, license_issued_date: sc.licenseIssuedDate ?? null,
+    job_type: sc.jobType, safety_officer: sc.safetyOfficer ?? null, chief_engineer: sc.chiefEngineer ?? null,
+    specialist_engineer: sc.specialistEngineer ?? null, registered_skilled_worker: sc.registeredSkilledWorker ?? null,
+  });
+}
+export async function deleteSubcontractor(id: string) {
+  const db = assertSupabase();
+  await db.from("subcontractors").delete().eq("id", id);
+}
+
+// --- SubcontractorOrgChart ---
+export async function upsertOrgChart(c: SubcontractorOrgChart) {
+  const db = assertSupabase();
+  await db.from("org_charts").upsert({
+    id: c.id, workspace_id: c.workspaceId, created_date: c.createdDate, entries: c.entries,
+    created_by: c.createdBy, created_at: c.createdAt, updated_at: c.updatedAt ?? null,
+  });
+}
+export async function deleteOrgChart(id: string) {
+  const db = assertSupabase();
+  await db.from("org_charts").delete().eq("id", id);
+}
+
+// --- ConstructionSystemLedger ---
+export async function upsertSystemLedger(l: ConstructionSystemLedger) {
+  const db = assertSupabase();
+  await db.from("system_ledgers").upsert({
+    id: l.id, workspace_id: l.workspaceId, subcontractor_id: l.subcontractorId ?? null, created_date: l.createdDate,
+    prime_company_name: l.primeCompanyName, prime_address: l.primeAddress, prime_phone: l.primePhone ?? null,
+    prime_representative: l.primeRepresentative, prime_license_category: l.primeLicenseCategory,
+    prime_license_number: l.primeLicenseNumber, prime_license_issued_date: l.primeLicenseIssuedDate,
+    prime_work_title: l.primeWorkTitle, prime_orderer_name_address: l.primeOrdererNameAddress,
+    prime_period_start: l.primePeriodStart, prime_period_end: l.primePeriodEnd, prime_contract_date: l.primeContractDate,
+    prime_insurance: l.primeInsurance, prime_site_agent: l.primeSiteAgent, prime_chief_engineer_name: l.primeChiefEngineerName,
+    prime_chief_engineer_full_time: l.primeChiefEngineerFullTime, prime_chief_engineer_qualification: l.primeChiefEngineerQualification,
+    prime_specialist_engineer_name: l.primeSpecialistEngineerName ?? null, prime_safety_officer_name: l.primeSafetyOfficerName,
+    prime_safety_promoter_name: l.primeSafetyPromoterName ?? null, prime_labor_manager_name: l.primeLaborManagerName ?? null,
+    sub_company_name: l.subCompanyName, sub_address: l.subAddress, sub_representative: l.subRepresentative,
+    sub_license_category: l.subLicenseCategory, sub_license_number: l.subLicenseNumber, sub_license_issued_date: l.subLicenseIssuedDate,
+    sub_work_title: l.subWorkTitle, sub_period_start: l.subPeriodStart, sub_period_end: l.subPeriodEnd, sub_contract_date: l.subContractDate,
+    sub_insurance: l.subInsurance, sub_site_agent: l.subSiteAgent, sub_chief_engineer_name: l.subChiefEngineerName, sub_safety_officer_name: l.subSafetyOfficerName,
+    created_by: l.createdBy, created_at: l.createdAt, updated_at: l.updatedAt ?? null,
+  });
+}
+export async function deleteSystemLedger(id: string) {
+  const db = assertSupabase();
+  await db.from("system_ledgers").delete().eq("id", id);
+}
+
+// --- FieldResource ---
+export async function upsertFieldResource(fr: FieldResource) {
+  const db = assertSupabase();
+  await db.from("field_resources").upsert({
+    id: fr.id, name: fr.name, type: fr.type, status: fr.status,
+    maker: fr.maker ?? null, notes: fr.notes ?? null,
+  });
+}
+export async function deleteFieldResource(id: string) {
+  const db = assertSupabase();
+  await db.from("field_resources").delete().eq("id", id);
+}
+
+// --- ResourceAllocation ---
+export async function upsertResourceAllocation(a: ResourceAllocation) {
+  const db = assertSupabase();
+  await db.from("resource_allocations").upsert({
+    id: a.id, resource_id: a.resourceId, workspace_id: a.workspaceId, date: a.date, note: a.note ?? null,
+  });
+}
+export async function deleteResourceAllocation(id: string) {
+  const db = assertSupabase();
+  await db.from("resource_allocations").delete().eq("id", id);
+}
+
+// --- ResourceInspection ---
+export async function upsertResourceInspection(i: ResourceInspection) {
+  const db = assertSupabase();
+  await db.from("resource_inspections").upsert({
+    id: i.id, resource_id: i.resourceId, date: i.date, inspector: i.inspector, result: i.result, note: i.note ?? null,
+  });
+}
+export async function deleteResourceInspection(id: string) {
+  const db = assertSupabase();
+  await db.from("resource_inspections").delete().eq("id", id);
+}
+
 // --- AuditLog ---
 export async function insertAuditLog(log: AuditLog) {
   const db = assertSupabase();
@@ -335,10 +549,32 @@ export async function seedIfEmpty(state: AppState) {
       amount: w.amount ?? null, detail: w.detail,
       approvers: w.approvers, approved: w.approved, rejected: w.rejected,
     }))),
+    db.from("workflow_templates").insert(state.workflowTemplates.map((t) => ({
+      id: t.id, name: t.name, type: t.type, description: t.description ?? null,
+      detail_hint: t.detailHint ?? null, fields: t.fields, default_route: t.defaultRoute,
+    }))),
     db.from("mails").insert(state.mails.map((m) => ({
       id: m.id, subject: m.subject, from_addr: m.from,
       to_addrs: m.to, date: m.date, body: m.body,
       folder: m.folder, read: m.read, labels: m.labels,
+    }))),
+    db.from("subcontractors").insert(state.subcontractors.map((sc) => ({
+      id: sc.id, company_name: sc.companyName, representative: sc.representative, address: sc.address ?? null, phone: sc.phone ?? null,
+      license_category: sc.licenseCategory ?? null, license_number: sc.licenseNumber ?? null, license_issued_date: sc.licenseIssuedDate ?? null,
+      job_type: sc.jobType, safety_officer: sc.safetyOfficer ?? null, chief_engineer: sc.chiefEngineer ?? null,
+      specialist_engineer: sc.specialistEngineer ?? null, registered_skilled_worker: sc.registeredSkilledWorker ?? null,
+    }))),
+    db.from("org_charts").insert(state.orgCharts.map((c) => ({
+      id: c.id, workspace_id: c.workspaceId, created_date: c.createdDate, entries: c.entries, created_by: c.createdBy, created_at: c.createdAt,
+    }))),
+    db.from("field_resources").insert(state.fieldResources.map((fr) => ({
+      id: fr.id, name: fr.name, type: fr.type, status: fr.status, maker: fr.maker ?? null, notes: fr.notes ?? null,
+    }))),
+    db.from("resource_allocations").insert(state.resourceAllocations.map((a) => ({
+      id: a.id, resource_id: a.resourceId, workspace_id: a.workspaceId, date: a.date, note: a.note ?? null,
+    }))),
+    db.from("resource_inspections").insert(state.resourceInspections.map((i) => ({
+      id: i.id, resource_id: i.resourceId, date: i.date, inspector: i.inspector, result: i.result, note: i.note ?? null,
     }))),
   ]);
 }

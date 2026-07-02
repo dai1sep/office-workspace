@@ -17,6 +17,17 @@
 - TypeScript and Next.js production build passed after these changes. Production HTTP returned 200 on port 3001.
 - Interaction pass completed: schedule cards now use viewport-safe floating hover previews and lift/tap motion; schedule modes, bulletin lists, and workflow lists use short horizontal entrance transitions; detail screens automatically open as right-side slide drawers; creation and editing screens retain centered pop-up motion; interactive rows animate on entry and hover without moving surrounding layout.
 - Reduced-motion browser preferences are respected globally.
+- 2026-07-02: 現場リソース管理（Arune相当）を新規ビューとして追加。目的＝重機・機材・車両・人員の現場配置と稼働・点検を自前管理（外部SaaS「現場クラウド Arune」は有料・APIも非公開のため連携せず、同等機能をアプリ内に自作）。
+  - 新規ビュー `fieldresources`＝サイドバー「機 現場リソース管理」。4タブ構成：
+    1. 配置ボード＝日付選択＋未配置プールと現場カード間で @dnd-kit ドラッグ配置（同日同一リソースは自動的に移動、1リソース＝1配置/日）。現場は既存 `workspaces`（工事スペース）を流用。
+    2. リソース台帳＝重機/機材/車両/人員の登録・編集・削除（状態＝稼働可/整備中/故障）。
+    3. 稼働予定＝日付ごとの配置一覧・解除。
+    4. 点検簿＝リソース別の点検記録（点検日・結果[良/要注意/要修理]・点検者・所見）。
+  - データモデル：`FieldResource` / `ResourceAllocation` / `ResourceInspection` を `AppState` に追加。localStorage（キー `office-workspace-state-v3`、seed とマージし後方互換）＋ Supabase 同期（差分upsert/delete）に統合。
+  - 編集ファイル：`lib/types.ts`, `lib/store.ts`(seed), `lib/db.ts`(変換/fetchAllState/CRUD/seedIfEmpty), `lib/sync.ts`, `components/Sidebar.tsx`, `app/page.tsx`, `components/views/Placeholder.tsx`。新規：`components/views/FieldResources.tsx`。DB：`schema.sql` に `field_resources` / `resource_allocations` / `resource_inspections` の3テーブル＋RLS＋dev用ポリシーを追記（Supabase利用時のみ実行、ローカル動作には不要）。
+  - 検証：`tsc --noEmit` 通過（EXIT 0）、`next build` 成功（EXIT 0）。ブラウザでのクリック実操作は環境制約（localhost QA不可）のため未実施。
+  - 未対応・今後の候補：配置の複数現場許可、稼働率グラフ、CSV/印刷出力、点検アラート、位置情報/センサー連携、サイネージ表示。
+  - この時点では未コミット（ブランチ `feature/workflow-enhancements-and-search` の作業ツリーに反映）。
 
 ## Start Command
 
