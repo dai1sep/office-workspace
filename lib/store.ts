@@ -227,6 +227,13 @@ const seedState: AppState = {
     { id: "ri1", resourceId: "fr1", date: "2026-06-18", inspector: "田中", result: "良", note: "始業前点検 異常なし" },
     { id: "ri2", resourceId: "fr4", date: "2026-06-17", inspector: "鈴木", result: "要注意", note: "オイル量低下" },
   ],
+  primeProfile: {
+    companyName: "", address: "", phone: "", representative: "",
+    licenseCategory: "", licenseNumber: "", licenseIssuedDate: "",
+    insurance: { health: "加入", pension: "加入", employment: "加入" },
+    siteAgent: "", chiefEngineerName: "", chiefEngineerFullTime: "専任", chiefEngineerQualification: "",
+    specialistEngineerName: "", safetyOfficerName: "", safetyPromoterName: "", laborManagerName: "",
+  },
   uiPrefs: {
     theme: "default",
     density: "standard",

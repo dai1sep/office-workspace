@@ -7,6 +7,7 @@ import { useApp } from "@/lib/context";
 import type {
   ConstructionSystemLedger,
   ConstructionSystemLedgerInsurance,
+  PrimeCompanyProfile,
   OrgChartEntry,
   Subcontractor,
   SubcontractorOrgChart,
@@ -260,14 +261,28 @@ export default function SafetyDocsView() {
   const [ldWorkspaceId, setLdWorkspaceId] = useState("");
   const [ldModalOpen, setLdModalOpen] = useState(false);
 
+  // 自社（元請）マスタ
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileDraft, setProfileDraft] = useState<PrimeCompanyProfile>(state.primeProfile);
+  function openProfile() { setProfileDraft(state.primeProfile); setProfileOpen(true); }
+  function saveProfile() { updateState((prev) => ({ ...prev, primeProfile: profileDraft })); setProfileOpen(false); }
+  type ProfileStrKey = "companyName" | "address" | "phone" | "representative" | "licenseCategory" | "licenseNumber" | "licenseIssuedDate" | "siteAgent" | "chiefEngineerName" | "chiefEngineerQualification" | "specialistEngineerName" | "safetyOfficerName" | "safetyPromoterName" | "laborManagerName";
+  const profileField = (label: string, k: ProfileStrKey) => (
+    <label style={{ display: "block", fontSize: 12, marginBottom: 8 }}>{label}
+      <input value={profileDraft[k] ?? ""} onChange={(e) => setProfileDraft((pv) => ({ ...pv, [k]: e.target.value }))} style={{ display: "block", width: "100%", marginTop: 3 }} />
+    </label>
+  );
+
   function newLedger() {
     if (!ldWorkspaceId) return;
+    const p = state.primeProfile;
     setLdEditing({
       id: uid("sl"), workspaceId: ldWorkspaceId, createdDate: new Date().toISOString().slice(0, 10),
-      primeCompanyName: "", primeAddress: "", primeRepresentative: "", primeLicenseCategory: "", primeLicenseNumber: "", primeLicenseIssuedDate: "",
+      primeCompanyName: p.companyName, primeAddress: p.address, primePhone: p.phone, primeRepresentative: p.representative,
+      primeLicenseCategory: p.licenseCategory, primeLicenseNumber: p.licenseNumber, primeLicenseIssuedDate: p.licenseIssuedDate,
       primeWorkTitle: "", primeOrdererNameAddress: "", primePeriodStart: "", primePeriodEnd: "", primeContractDate: "",
-      primeInsurance: emptyInsurance(), primeSiteAgent: "", primeChiefEngineerName: "", primeChiefEngineerFullTime: "専任", primeChiefEngineerQualification: "",
-      primeSafetyOfficerName: "",
+      primeInsurance: { ...p.insurance }, primeSiteAgent: p.siteAgent, primeChiefEngineerName: p.chiefEngineerName, primeChiefEngineerFullTime: p.chiefEngineerFullTime, primeChiefEngineerQualification: p.chiefEngineerQualification,
+      primeSpecialistEngineerName: p.specialistEngineerName, primeSafetyOfficerName: p.safetyOfficerName, primeSafetyPromoterName: p.safetyPromoterName, primeLaborManagerName: p.laborManagerName,
       subCompanyName: "", subAddress: "", subRepresentative: "", subLicenseCategory: "", subLicenseNumber: "", subLicenseIssuedDate: "",
       subWorkTitle: "", subPeriodStart: "", subPeriodEnd: "", subContractDate: "", subInsurance: emptyInsurance(), subSiteAgent: "", subChiefEngineerName: "", subSafetyOfficerName: "",
       createdBy: me, createdAt: new Date().toISOString(),
@@ -363,6 +378,7 @@ export default function SafetyDocsView() {
           <div className="panel-title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
             <span>施工体制台帳 <span className="muted-text">{state.systemLedgers.length}件</span></span>
             <div style={{ display: "flex", gap: 6 }}>
+              <button className="ghost-button" onClick={openProfile}>自社情報</button>
               <select value={ldWorkspaceId} onChange={(e) => setLdWorkspaceId(e.target.value)}><option value="">工事を選択</option>{state.workspaces.map((w) => <option key={w.id} value={w.id}>{w.name}</option>)}</select>
               <button className="ghost-button" disabled={!ldWorkspaceId} onClick={newLedger} style={{ background: ldWorkspaceId ? "var(--green)" : "var(--panel)", color: ldWorkspaceId ? "white" : "var(--muted)" }}>新規作成</button>
             </div>
@@ -470,6 +486,48 @@ export default function SafetyDocsView() {
             <button className="ghost-button" onClick={() => downloadOrgChartExcel(ocDetail, wsName(ocDetail.workspaceId))}>⬇ Excelダウンロード</button>
           </div>
         </div>}
+      </Modal>
+
+      {/* ── 自社（元請）情報 編集モーダル ── */}
+      <Modal open={profileOpen} onClose={() => setProfileOpen(false)} title="自社情報（元請）" width={720}>
+        <p className="muted-text" style={{ marginTop: 0, fontSize: 12 }}>ここで一度登録すると、施工体制台帳の新規作成時に元請欄へ自動で入ります。いつでも編集できます。</p>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 16px" }}>
+          {profileField("会社名", "companyName")}
+          {profileField("代表者名", "representative")}
+          {profileField("住所", "address")}
+          {profileField("電話番号", "phone")}
+          {profileField("建設業許可 区分（例：大臣・特定）", "licenseCategory")}
+          {profileField("建設業許可 番号", "licenseNumber")}
+          {profileField("許可（更新）年月日", "licenseIssuedDate")}
+          {profileField("現場代理人名", "siteAgent")}
+          {profileField("監理・主任技術者名", "chiefEngineerName")}
+          <label style={{ display: "block", fontSize: 12, marginBottom: 8 }}>専任 / 非専任
+            <select value={profileDraft.chiefEngineerFullTime} onChange={(e) => setProfileDraft((pv) => ({ ...pv, chiefEngineerFullTime: e.target.value as "専任" | "非専任" }))} style={{ display: "block", width: "100%", marginTop: 3 }}>
+              <option value="専任">専任</option><option value="非専任">非専任</option>
+            </select>
+          </label>
+          {profileField("資格内容", "chiefEngineerQualification")}
+          {profileField("専門技術者名", "specialistEngineerName")}
+          {profileField("安全衛生責任者名", "safetyOfficerName")}
+          {profileField("安全衛生推進者名", "safetyPromoterName")}
+          {profileField("雇用管理責任者名", "laborManagerName")}
+        </div>
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 12, marginBottom: 6 }}>健康保険等の加入状況</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {(["health", "pension", "employment"] as const).map((k) => (
+              <label key={k} style={{ flex: 1, fontSize: 12 }}>{k === "health" ? "健康保険" : k === "pension" ? "厚生年金" : "雇用保険"}
+                <select value={profileDraft.insurance[k]} onChange={(e) => setProfileDraft((pv) => ({ ...pv, insurance: { ...pv.insurance, [k]: e.target.value as ConstructionSystemLedgerInsurance["health"] } }))} style={{ display: "block", width: "100%", marginTop: 3 }}>
+                  <option value="加入">加入</option><option value="未加入">未加入</option><option value="適用除外">適用除外</option>
+                </select>
+              </label>
+            ))}
+          </div>
+        </div>
+        <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+          <button className="ghost-button" onClick={() => setProfileOpen(false)}>キャンセル</button>
+          <button className="ghost-button" onClick={saveProfile} style={{ background: "var(--green)", color: "white" }}>保存</button>
+        </div>
       </Modal>
 
       {/* ── 施工体制台帳 編集モーダル ── */}

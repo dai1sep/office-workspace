@@ -370,6 +370,26 @@ export interface ConstructionSystemLedger {
   updatedAt?: string;
 }
 
+// 自社（元請）マスタ。施工体制台帳の元請欄を毎回使い回すための会社プロフィール。
+export interface PrimeCompanyProfile {
+  companyName: string;
+  address: string;
+  phone?: string;
+  representative: string;
+  licenseCategory: string;
+  licenseNumber: string;
+  licenseIssuedDate: string;
+  insurance: ConstructionSystemLedgerInsurance;
+  siteAgent: string;
+  chiefEngineerName: string;
+  chiefEngineerFullTime: "専任" | "非専任";
+  chiefEngineerQualification: string;
+  specialistEngineerName?: string;
+  safetyOfficerName: string;
+  safetyPromoterName?: string;
+  laborManagerName?: string;
+}
+
 export interface EmployeeCertification {
   id: string;
   name: string;
@@ -550,6 +570,7 @@ export interface AppState {
   fieldResources: FieldResource[];
   resourceAllocations: ResourceAllocation[];
   resourceInspections: ResourceInspection[];
+  primeProfile: PrimeCompanyProfile;
   uiPrefs: UiPrefs;
   bulletinSubscriptions?: string[];
 }

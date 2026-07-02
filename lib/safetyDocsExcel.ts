@@ -1,7 +1,7 @@
 // 安全書類のExcelダウンロード。元の提出様式のレイアウト（罫線・結合・見出し）を
 // exceljsでコード上に再構築し、フォームデータを差し込んで.xlsxとして書き出す。
 import ExcelJS from "exceljs";
-import type { ConstructionSystemLedger, ConstructionSystemLedgerInsurance, OrgChartEntry, SubcontractorOrgChart } from "./types";
+import type { ConstructionSystemLedger, OrgChartEntry, SubcontractorOrgChart } from "./types";
 
 const THIN: Partial<ExcelJS.Border> = { style: "thin" };
 const BORDER: Partial<ExcelJS.Borders> = { top: THIN, left: THIN, bottom: THIN, right: THIN };
@@ -117,135 +117,70 @@ export async function downloadOrgChartExcel(chart: SubcontractorOrgChart, worksp
 }
 
 /* ══════════════════════════════════════════
-   施工体制台帳
+   施工体制台帳（正式Excel様式へ差し込み）
+   public/templates/system-ledger-template.xlsx（罫線・結合を保持した空欄ひな型）を
+   読み込み、指定セルへ値を差し込んで出力する。書式は配布原本を完全再現する。
+   ※値セルの対応は原本レイアウトに基づく。ズレがあれば下記アドレスのみ調整すればよい。
 ══════════════════════════════════════════ */
-export async function downloadSystemLedgerExcel(l: ConstructionSystemLedger, workspaceName: string) {
+const SYSTEM_LEDGER_TEMPLATE_URL = "/templates/system-ledger-template.xlsx";
+
+async function loadLedgerTemplate(): Promise<ExcelJS.Workbook> {
+  const res = await fetch(SYSTEM_LEDGER_TEMPLATE_URL);
+  if (!res.ok) throw new Error("施工体制台帳テンプレートを読み込めませんでした（public/templates を確認してください）");
+  const buf = await res.arrayBuffer();
   const wb = new ExcelJS.Workbook();
-  const ws = wb.addWorksheet("施工体制台帳", { pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true } });
-  ws.columns = Array.from({ length: 8 }, () => ({ width: 16 }));
+  await wb.xlsx.load(buf);
+  return wb;
+}
 
-  mergeSet(ws, "A1:H1", `作成日：${l.createdDate}`);
-  mergeSet(ws, "A2:H3", "施工体制台帳", true);
-  ws.getCell("A2").font = { bold: true, size: 16 };
-  ws.getCell("A2").alignment = { vertical: "middle", horizontal: "center" };
-  mergeSet(ws, "A4:H4", `工事名：${workspaceName}`);
+// 空欄ひな型のセルへ値を差し込む（左＝元請/自社, 右＝下請）。空値のセルは空欄のまま。
+export function fillSystemLedgerSheet(ws: ExcelJS.Worksheet, l: ConstructionSystemLedger) {
+  const set = (addr: string, v?: string | null) => {
+    if (v != null && String(v).trim() !== "") ws.getCell(addr).value = v;
+  };
+  const period = (s?: string, e?: string) => (s || e ? `自　${s ?? ""}　　至　${e ?? ""}` : "");
 
-  function insRow(row: number, startCol: "A" | "E", ins: ConstructionSystemLedgerInsurance) {
-    const c0 = startCol;
-    const c1 = String.fromCharCode(c0.charCodeAt(0) + 3) as "D" | "H";
-    setCell(ws, `${c0}${row}`, "健康保険/厚生年金/雇用保険", true);
-    setCell(ws, `${c1}${row}`, `${ins.health} / ${ins.pension} / ${ins.employment}`);
-  }
+  // ── 左：元請負人（自社）に関する事項 ──
+  set("B5", l.primeCompanyName);
+  set("W11", [l.primeLicenseCategory, l.primeLicenseNumber].filter(Boolean).join("　"));
+  set("AF11", l.primeLicenseIssuedDate);
+  set("H16", l.primeWorkTitle);
+  set("H19", l.primeOrdererNameAddress);
+  set("H22", period(l.primePeriodStart, l.primePeriodEnd));
+  set("AC22", l.primeContractDate);
+  set("N28", l.primeCompanyName);
+  set("AC28", l.primeAddress);
+  set("N35", l.primeInsurance.health);
+  set("X35", l.primeInsurance.pension);
+  set("AG35", l.primeInsurance.employment);
+  set("H49", l.primeSiteAgent);
+  set("H51", [l.primeChiefEngineerName, l.primeChiefEngineerFullTime].filter(Boolean).join("　"));
+  set("AC51", l.primeChiefEngineerQualification);
+  set("H55", l.primeSpecialistEngineerName);
 
-  function party(startRow: number, startCol: "A", title: string, p: {
-    companyName: string; address: string; phone?: string; representative: string;
-    licenseCategory: string; licenseNumber: string; licenseIssuedDate: string;
-    workTitle: string; ordererNameAddress?: string; periodStart: string; periodEnd: string; contractDate: string;
-    insurance: ConstructionSystemLedgerInsurance; siteAgent: string;
-    chiefEngineerName: string; chiefEngineerFullTime?: string; chiefEngineerQualification?: string;
-    specialistEngineerName?: string; safetyOfficerName: string; safetyPromoterName?: string; laborManagerName?: string;
-  }) {
-    const labelCol = startCol;
-    const valueCol = String.fromCharCode(startCol.charCodeAt(0) + 1) as "B";
-    const valueEndCol = "D";
-    let row = startRow;
-    mergeSet(ws, `${labelCol}${row}:${valueEndCol}${row}`, title, true);
-    ws.getCell(`${labelCol}${row}`).font = { bold: true, size: 10 };
-    row++;
-    const lines: [string, string | undefined][] = [
-      ["会社名", p.companyName],
-      ["住所", `${p.address}${p.phone ? `（TEL：${p.phone}）` : ""}`],
-      ["代表者名", p.representative],
-      ["建設業の許可", `${p.licenseCategory}　${p.licenseNumber}　（${p.licenseIssuedDate}）`],
-      ["工事名称及び工事内容", p.workTitle],
-      ...(p.ordererNameAddress !== undefined ? [["発注者名及び住所", p.ordererNameAddress] as [string, string]] : []),
-      ["工期", `自　${p.periodStart}　至　${p.periodEnd}`],
-      ["契約日", p.contractDate],
-    ];
-    lines.forEach(([label, value]) => {
-      setCell(ws, `${labelCol}${row}`, label, true);
-      mergeSet(ws, `${valueCol}${row}:${valueEndCol}${row}`, value);
-      row++;
-    });
-    insRow(row, startCol, p.insurance);
-    row++;
-    const lines2: [string, string | undefined][] = [
-      ["現場代理人名", p.siteAgent],
-      ["主任（監理）技術者名", `${p.chiefEngineerName}${p.chiefEngineerFullTime ? `（${p.chiefEngineerFullTime}）` : ""}`],
-      ...(p.chiefEngineerQualification !== undefined ? [["資格内容", p.chiefEngineerQualification] as [string, string]] : []),
-      ...(p.specialistEngineerName !== undefined ? [["専門技術者名", p.specialistEngineerName] as [string, string]] : []),
-      ["安全衛生責任者名", p.safetyOfficerName],
-      ...(p.safetyPromoterName !== undefined ? [["安全衛生推進者名", p.safetyPromoterName] as [string, string]] : []),
-      ...(p.laborManagerName !== undefined ? [["雇用管理責任者名", p.laborManagerName] as [string, string]] : []),
-    ];
-    lines2.forEach(([label, value]) => {
-      setCell(ws, `${labelCol}${row}`, label, true);
-      mergeSet(ws, `${valueCol}${row}:${valueEndCol}${row}`, value);
-      row++;
-    });
-    return row;
-  }
+  // ── 右：下請負人に関する事項 ──
+  set("AX5", l.subCompanyName);
+  set("BS5", l.subRepresentative);
+  set("AX8", l.subAddress);
+  set("AX11", l.subWorkTitle);
+  set("AX14", period(l.subPeriodStart, l.subPeriodEnd));
+  set("BS14", l.subContractDate);
+  set("AX20", l.subLicenseCategory);
+  set("BM20", l.subLicenseNumber);
+  set("BV20", l.subLicenseIssuedDate);
+  set("BD27", l.subInsurance.health);
+  set("BN27", l.subInsurance.pension);
+  set("BW27", l.subInsurance.employment);
+  set("BD31", l.subCompanyName);
+  set("AZ34", l.subSiteAgent);
+  set("BU34", l.subSafetyOfficerName);
+  set("BD38", l.subChiefEngineerName);
+  set("BN44", l.subWorkTitle);
+}
 
-  const endRowPrime = party(6, "A", "《元請に関する事項》", {
-    companyName: l.primeCompanyName, address: l.primeAddress, phone: l.primePhone, representative: l.primeRepresentative,
-    licenseCategory: l.primeLicenseCategory, licenseNumber: l.primeLicenseNumber, licenseIssuedDate: l.primeLicenseIssuedDate,
-    workTitle: l.primeWorkTitle, ordererNameAddress: l.primeOrdererNameAddress, periodStart: l.primePeriodStart, periodEnd: l.primePeriodEnd, contractDate: l.primeContractDate,
-    insurance: l.primeInsurance, siteAgent: l.primeSiteAgent,
-    chiefEngineerName: l.primeChiefEngineerName, chiefEngineerFullTime: l.primeChiefEngineerFullTime, chiefEngineerQualification: l.primeChiefEngineerQualification,
-    specialistEngineerName: l.primeSpecialistEngineerName, safetyOfficerName: l.primeSafetyOfficerName,
-    safetyPromoterName: l.primeSafetyPromoterName, laborManagerName: l.primeLaborManagerName,
-  });
-
-  // 元請ブロックは A-D列。下請ブロックは E-H列を使い、同じ開始行から並べる。
-  function partyRight(startRow: number, title: string, p: {
-    companyName: string; address: string; representative: string;
-    licenseCategory: string; licenseNumber: string; licenseIssuedDate: string;
-    workTitle: string; periodStart: string; periodEnd: string; contractDate: string;
-    insurance: ConstructionSystemLedgerInsurance; siteAgent: string;
-    chiefEngineerName: string; safetyOfficerName: string;
-  }) {
-    const labelCol = "E", valueCol = "F", valueEndCol = "H";
-    let row = startRow;
-    mergeSet(ws, `${labelCol}${row}:${valueEndCol}${row}`, title, true);
-    ws.getCell(`${labelCol}${row}`).font = { bold: true, size: 10 };
-    row++;
-    const lines: [string, string][] = [
-      ["会社名", p.companyName],
-      ["住所", p.address],
-      ["代表者名", p.representative],
-      ["建設業の許可", `${p.licenseCategory}　${p.licenseNumber}　（${p.licenseIssuedDate}）`],
-      ["工事名称及び工事内容", p.workTitle],
-      ["工期", `自　${p.periodStart}　至　${p.periodEnd}`],
-      ["契約日", p.contractDate],
-    ];
-    lines.forEach(([label, value]) => {
-      setCell(ws, `${labelCol}${row}`, label, true);
-      mergeSet(ws, `${valueCol}${row}:${valueEndCol}${row}`, value);
-      row++;
-    });
-    insRow(row, "E", p.insurance);
-    row++;
-    const lines2: [string, string][] = [
-      ["現場代理人名", p.siteAgent],
-      ["主任技術者名", p.chiefEngineerName],
-      ["安全衛生責任者名", p.safetyOfficerName],
-    ];
-    lines2.forEach(([label, value]) => {
-      setCell(ws, `${labelCol}${row}`, label, true);
-      mergeSet(ws, `${valueCol}${row}:${valueEndCol}${row}`, value);
-      row++;
-    });
-    return row;
-  }
-
-  partyRight(6, "《下請負人に関する事項》", {
-    companyName: l.subCompanyName, address: l.subAddress, representative: l.subRepresentative,
-    licenseCategory: l.subLicenseCategory, licenseNumber: l.subLicenseNumber, licenseIssuedDate: l.subLicenseIssuedDate,
-    workTitle: l.subWorkTitle, periodStart: l.subPeriodStart, periodEnd: l.subPeriodEnd, contractDate: l.subContractDate,
-    insurance: l.subInsurance, siteAgent: l.subSiteAgent,
-    chiefEngineerName: l.subChiefEngineerName, safetyOfficerName: l.subSafetyOfficerName,
-  });
-  void endRowPrime;
-
+export async function downloadSystemLedgerExcel(l: ConstructionSystemLedger, workspaceName: string) {
+  const wb = await loadLedgerTemplate();
+  const ws = wb.worksheets[0];
+  fillSystemLedgerSheet(ws, l);
   await saveWorkbook(wb, `施工体制台帳_${workspaceName}_${l.subCompanyName || "下請"}.xlsx`);
 }
