@@ -210,6 +210,23 @@ const seedState: AppState = {
       createdBy: "u2", createdAt: "2026-06-01",
     },
   ],
+  fieldResources: [
+    { id: "fr1", name: "バックホウ 0.45", type: "重機", status: "稼働可", maker: "コマツ PC138US" },
+    { id: "fr2", name: "ミニユンボ 0.1", type: "重機", status: "稼働可", maker: "クボタ U-10" },
+    { id: "fr3", name: "2tダンプ", type: "車両", status: "稼働可", maker: "いすゞ エルフ" },
+    { id: "fr4", name: "発電機 2.5kVA", type: "機材", status: "整備中", notes: "オイル交換予定" },
+    { id: "fr5", name: "プレートコンパクター", type: "機材", status: "稼働可" },
+    { id: "fr6", name: "鈴木（オペレーター）", type: "人員", status: "稼働可" },
+  ],
+  resourceAllocations: [
+    { id: "ra1", resourceId: "fr1", workspaceId: "ws1", date: TODAY },
+    { id: "ra2", resourceId: "fr3", workspaceId: "ws1", date: TODAY },
+    { id: "ra3", resourceId: "fr2", workspaceId: "ws2", date: TODAY },
+  ],
+  resourceInspections: [
+    { id: "ri1", resourceId: "fr1", date: "2026-06-18", inspector: "田中", result: "良", note: "始業前点検 異常なし" },
+    { id: "ri2", resourceId: "fr4", date: "2026-06-17", inspector: "鈴木", result: "要注意", note: "オイル量低下" },
+  ],
   uiPrefs: {
     theme: "default",
     density: "standard",

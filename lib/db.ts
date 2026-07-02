@@ -10,6 +10,7 @@ import type {
   MailThread, FileEntry, Facility, FacilityReservation,
   Timecard, AuditLog, AddressEntry, AppState,
   Subcontractor, SubcontractorOrgChart, ConstructionSystemLedger,
+  FieldResource, ResourceAllocation, ResourceInspection,
 } from "./types";
 
 // ────────────────────────────────────────
@@ -150,6 +151,38 @@ function toAuditLog(r: Record<string, unknown>): AuditLog {
   };
 }
 
+function toFieldResource(r: Record<string, unknown>): FieldResource {
+  return {
+    id: r.id as string,
+    name: r.name as string,
+    type: r.type as FieldResource["type"],
+    status: r.status as FieldResource["status"],
+    maker: r.maker as string | undefined,
+    notes: r.notes as string | undefined,
+  };
+}
+
+function toResourceAllocation(r: Record<string, unknown>): ResourceAllocation {
+  return {
+    id: r.id as string,
+    resourceId: r.resource_id as string,
+    workspaceId: r.workspace_id as string,
+    date: r.date as string,
+    note: r.note as string | undefined,
+  };
+}
+
+function toResourceInspection(r: Record<string, unknown>): ResourceInspection {
+  return {
+    id: r.id as string,
+    resourceId: r.resource_id as string,
+    date: r.date as string,
+    inspector: r.inspector as string,
+    result: r.result as ResourceInspection["result"],
+    note: r.note as string | undefined,
+  };
+}
+
 // ────────────────────────────────────────
 // 全データ取得（初回ロード用）
 // ────────────────────────────────────────
@@ -174,6 +207,9 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     { data: subcontractors },
     { data: orgCharts },
     { data: systemLedgers },
+    { data: fieldResources },
+    { data: resourceAllocations },
+    { data: resourceInspections },
   ] = await Promise.all([
     db.from("users").select("*").order("name"),
     db.from("schedules").select("*").order("date"),
@@ -191,6 +227,9 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     db.from("subcontractors").select("*").order("company_name"),
     db.from("org_charts").select("*").order("created_date", { ascending: false }),
     db.from("system_ledgers").select("*").order("created_date", { ascending: false }),
+    db.from("field_resources").select("*").order("name"),
+    db.from("resource_allocations").select("*").order("date", { ascending: false }),
+    db.from("resource_inspections").select("*").order("date", { ascending: false }),
   ]);
 
   return {
@@ -237,6 +276,9 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     })) as Subcontractor[],
     orgCharts:    (orgCharts ?? []).map((r) => toOrgChart(r as Record<string, unknown>)),
     systemLedgers: (systemLedgers ?? []).map((r) => toSystemLedger(r as Record<string, unknown>)),
+    fieldResources: (fieldResources ?? []).map((r) => toFieldResource(r as Record<string, unknown>)),
+    resourceAllocations: (resourceAllocations ?? []).map((r) => toResourceAllocation(r as Record<string, unknown>)),
+    resourceInspections: (resourceInspections ?? []).map((r) => toResourceInspection(r as Record<string, unknown>)),
   };
 }
 
@@ -428,6 +470,43 @@ export async function deleteSystemLedger(id: string) {
   await db.from("system_ledgers").delete().eq("id", id);
 }
 
+// --- FieldResource ---
+export async function upsertFieldResource(fr: FieldResource) {
+  const db = assertSupabase();
+  await db.from("field_resources").upsert({
+    id: fr.id, name: fr.name, type: fr.type, status: fr.status,
+    maker: fr.maker ?? null, notes: fr.notes ?? null,
+  });
+}
+export async function deleteFieldResource(id: string) {
+  const db = assertSupabase();
+  await db.from("field_resources").delete().eq("id", id);
+}
+
+// --- ResourceAllocation ---
+export async function upsertResourceAllocation(a: ResourceAllocation) {
+  const db = assertSupabase();
+  await db.from("resource_allocations").upsert({
+    id: a.id, resource_id: a.resourceId, workspace_id: a.workspaceId, date: a.date, note: a.note ?? null,
+  });
+}
+export async function deleteResourceAllocation(id: string) {
+  const db = assertSupabase();
+  await db.from("resource_allocations").delete().eq("id", id);
+}
+
+// --- ResourceInspection ---
+export async function upsertResourceInspection(i: ResourceInspection) {
+  const db = assertSupabase();
+  await db.from("resource_inspections").upsert({
+    id: i.id, resource_id: i.resourceId, date: i.date, inspector: i.inspector, result: i.result, note: i.note ?? null,
+  });
+}
+export async function deleteResourceInspection(id: string) {
+  const db = assertSupabase();
+  await db.from("resource_inspections").delete().eq("id", id);
+}
+
 // --- AuditLog ---
 export async function insertAuditLog(log: AuditLog) {
   const db = assertSupabase();
@@ -487,6 +566,15 @@ export async function seedIfEmpty(state: AppState) {
     }))),
     db.from("org_charts").insert(state.orgCharts.map((c) => ({
       id: c.id, workspace_id: c.workspaceId, created_date: c.createdDate, entries: c.entries, created_by: c.createdBy, created_at: c.createdAt,
+    }))),
+    db.from("field_resources").insert(state.fieldResources.map((fr) => ({
+      id: fr.id, name: fr.name, type: fr.type, status: fr.status, maker: fr.maker ?? null, notes: fr.notes ?? null,
+    }))),
+    db.from("resource_allocations").insert(state.resourceAllocations.map((a) => ({
+      id: a.id, resource_id: a.resourceId, workspace_id: a.workspaceId, date: a.date, note: a.note ?? null,
+    }))),
+    db.from("resource_inspections").insert(state.resourceInspections.map((i) => ({
+      id: i.id, resource_id: i.resourceId, date: i.date, inspector: i.inspector, result: i.result, note: i.note ?? null,
     }))),
   ]);
 }

@@ -19,7 +19,8 @@ export type ViewId =
   | "licenses"
   | "dailyreport"
   | "impactmap"
-  | "safetydocs";
+  | "safetydocs"
+  | "fieldresources";
 
 export interface User {
   id: string;
@@ -483,6 +484,39 @@ export interface WorkSpace {
   createdAt: string;
 }
 
+// ── 現場リソース管理（Arune相当：重機・機材・車両・人員の配置と点検） ──
+export type FieldResourceType = "重機" | "機材" | "車両" | "人員";
+export type FieldResourceStatus = "稼働可" | "整備中" | "故障";
+
+export interface FieldResource {
+  id: string;
+  name: string;
+  type: FieldResourceType;
+  status: FieldResourceStatus;
+  maker?: string; // メーカー・型式など
+  notes?: string;
+}
+
+// 現場（workspace）への配置。date（YYYY-MM-DD）ごとに1リソース1配置。
+export interface ResourceAllocation {
+  id: string;
+  resourceId: string;
+  workspaceId: string;
+  date: string;
+  note?: string;
+}
+
+export type InspectionResult = "良" | "要注意" | "要修理";
+
+export interface ResourceInspection {
+  id: string;
+  resourceId: string;
+  date: string;
+  inspector: string;
+  result: InspectionResult;
+  note?: string;
+}
+
 export interface UiPrefs {
   theme: "default" | "focus" | "minimal";
   density: "standard" | "compact" | "spacious";
@@ -513,6 +547,9 @@ export interface AppState {
   subcontractors: Subcontractor[];
   orgCharts: SubcontractorOrgChart[];
   systemLedgers: ConstructionSystemLedger[];
+  fieldResources: FieldResource[];
+  resourceAllocations: ResourceAllocation[];
+  resourceInspections: ResourceInspection[];
   uiPrefs: UiPrefs;
   bulletinSubscriptions?: string[];
 }

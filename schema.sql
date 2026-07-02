@@ -335,3 +335,44 @@ CREATE POLICY "allow_all_dev" ON workflow_templates FOR ALL USING (true) WITH CH
 CREATE POLICY "allow_all_dev" ON subcontractors FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON org_charts     FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON system_ledgers FOR ALL USING (true) WITH CHECK (true);
+
+-- ── 現場リソース管理（Arune相当） ─────────────────────────────
+-- リソース（重機・機材・車両・人員）
+CREATE TABLE IF NOT EXISTS field_resources (
+  id      TEXT PRIMARY KEY,
+  name    TEXT NOT NULL,
+  type    TEXT NOT NULL DEFAULT '機材',
+  status  TEXT NOT NULL DEFAULT '稼働可',
+  maker   TEXT,
+  notes   TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 現場への配置（日付ごと）
+CREATE TABLE IF NOT EXISTS resource_allocations (
+  id           TEXT PRIMARY KEY,
+  resource_id  TEXT NOT NULL,
+  workspace_id TEXT NOT NULL,
+  date         TEXT NOT NULL,
+  note         TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 点検簿
+CREATE TABLE IF NOT EXISTS resource_inspections (
+  id          TEXT PRIMARY KEY,
+  resource_id TEXT NOT NULL,
+  date        TEXT NOT NULL,
+  inspector   TEXT NOT NULL DEFAULT '',
+  result      TEXT NOT NULL DEFAULT '良',
+  note        TEXT,
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE field_resources       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE resource_allocations  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE resource_inspections  ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "allow_all_dev" ON field_resources      FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON resource_allocations FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON resource_inspections FOR ALL USING (true) WITH CHECK (true);

@@ -18,6 +18,9 @@ import {
   upsertSubcontractor, deleteSubcontractor,
   upsertOrgChart, deleteOrgChart,
   upsertSystemLedger, deleteSystemLedger,
+  upsertFieldResource, deleteFieldResource,
+  upsertResourceAllocation, deleteResourceAllocation,
+  upsertResourceInspection, deleteResourceInspection,
 } from "./db";
 
 function ids(arr: { id: string }[]) {
@@ -125,4 +128,31 @@ export function syncToSupabase(prev: AppState, next: AppState) {
     if (!old || JSON.stringify(old) !== JSON.stringify(l)) upsertSystemLedger(l).catch(console.error);
   });
   prevSlIds.forEach((id) => { if (!nextSlIds.has(id)) deleteSystemLedger(id).catch(console.error); });
+
+  // --- FieldResource ---
+  const prevFrIds = ids(prev.fieldResources ?? []);
+  const nextFrIds = ids(next.fieldResources ?? []);
+  (next.fieldResources ?? []).forEach((fr) => {
+    const old = (prev.fieldResources ?? []).find((x) => x.id === fr.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(fr)) upsertFieldResource(fr).catch(console.error);
+  });
+  prevFrIds.forEach((id) => { if (!nextFrIds.has(id)) deleteFieldResource(id).catch(console.error); });
+
+  // --- ResourceAllocation ---
+  const prevRaIds = ids(prev.resourceAllocations ?? []);
+  const nextRaIds = ids(next.resourceAllocations ?? []);
+  (next.resourceAllocations ?? []).forEach((a) => {
+    const old = (prev.resourceAllocations ?? []).find((x) => x.id === a.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(a)) upsertResourceAllocation(a).catch(console.error);
+  });
+  prevRaIds.forEach((id) => { if (!nextRaIds.has(id)) deleteResourceAllocation(id).catch(console.error); });
+
+  // --- ResourceInspection ---
+  const prevRiIds = ids(prev.resourceInspections ?? []);
+  const nextRiIds = ids(next.resourceInspections ?? []);
+  (next.resourceInspections ?? []).forEach((i) => {
+    const old = (prev.resourceInspections ?? []).find((x) => x.id === i.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(i)) upsertResourceInspection(i).catch(console.error);
+  });
+  prevRiIds.forEach((id) => { if (!nextRiIds.has(id)) deleteResourceInspection(id).catch(console.error); });
 }
