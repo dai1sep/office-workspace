@@ -28,6 +28,16 @@
   - 検証：`tsc --noEmit` 通過（EXIT 0）、`next build` 成功（EXIT 0）。ブラウザでのクリック実操作は環境制約（localhost QA不可）のため未実施。
   - 未対応・今後の候補：配置の複数現場許可、稼働率グラフ、CSV/印刷出力、点検アラート、位置情報/センサー連携、サイネージ表示。
   - この時点では未コミット（ブランチ `feature/workflow-enhancements-and-search` の作業ツリーに反映）。
+- 2026-07-02: 施工体制台帳のExcel出力を「配布正式様式へ差し込み」方式へ刷新。従来のコード再現（簡易レイアウト）を廃し、**配布原本の書式を完全再現**する。
+  - 原本 `5_施工体制台帳.xls` を Excel で `.xlsx` 化 → 作成例（社外秘サンプル）を全消去した空欄ひな型を `public/templates/system-ledger-template.xlsx` に配置（罫線・169結合セルを保持）。
+  - `lib/safetyDocsExcel.ts`：`downloadSystemLedgerExcel` をテンプレ読込→セル差し込み方式に置換（`fillSystemLedgerSheet` にセル対応表。ズレ調整はここのアドレスのみ）。左＝元請/自社、右＝下請。UI・データモデルは既存のまま（施工体制台帳タブ／編集モーダル／複数作成＝下請追加）。
+  - **自社（元請）マスタ**を追加：`PrimeCompanyProfile` を `AppState.primeProfile` に追加（seedは空・実データ非格納）。SafetyDocs の施工体制台帳タブに「自社情報」編集モーダル（全項目テキスト入力）。新規台帳作成時に元請欄へ自動プリフィル。下請は既存「下請業者マスタ」を使い回し。
+  - 編集ファイル：`lib/types.ts`, `lib/store.ts`, `lib/safetyDocsExcel.ts`, `components/views/SafetyDocs.tsx`。テンプレ：`public/templates/system-ledger-template.xlsx`（スクラブ済）。
+  - 検証：`tsc --noEmit` EXIT 0 / `next build` EXIT 0。出力サンプル（自社×下請の記入例）は目視確認後に削除。
+  - 要確認：左（元請）側の一部セル位置（会社名・技術者名まわり）は原本の空欄例から推定。実出力を Excel で見て `fillSystemLedgerSheet` のアドレスを微調整する。
+  - 社外秘: テンプレは作成例データをスクラブ済。コミット前に一時ファイル（AI直下のサンプル/位置確認/原本コピー）を削除すること（[[safety-documents-project]] 参照）。未コミット。
+
+- 2026-07-02: 工事日報（工事打合簿）のExcel出力を新設。配布原本 `工事打合簿.xlsx`（自社ロゴ画像入り）を**ZIPとして開きセル値XMLだけ書き換える方式**（`lib/xlsxPatch.ts` の `patchXlsxCells`）で、ロゴ・罫線・結合・体裁を完全再現。exceljs の load→save は画像配置(drawing)を落とすため不採用。`lib/dailyReportExcel.ts`（`buildDailyReportCellMap`＋DL）、`components/views/DailyReport.tsx` 詳細に「⬇ Excel」ボタン追加。テンプレ＝`public/templates/daily-report-template.xlsx`（原本＝ロゴ保持、残存サンプルは実行時にクリア）。`jszip`(^3.10.1) を package.json に明記（既存の transitive を昇格）。検証：`tsc`/`next build` EXIT 0。要確認：一部セル位置（就業時間・使用機械の累計・進捗率の列割当）はサンプル出力で微調整。社外秘: AI直下の一時ファイル（サンプル/原本コピー/ロゴ抽出）はコミット前に整理。未コミット。
 
 ## Start Command
 
