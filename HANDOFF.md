@@ -37,6 +37,8 @@
   - 要確認：左（元請）側の一部セル位置（会社名・技術者名まわり）は原本の空欄例から推定。実出力を Excel で見て `fillSystemLedgerSheet` のアドレスを微調整する。
   - 社外秘: テンプレは作成例データをスクラブ済。コミット前に一時ファイル（AI直下のサンプル/位置確認/原本コピー）を削除すること（[[safety-documents-project]] 参照）。未コミット。
 
+- 2026-07-02: 工事日報（工事打合簿）のExcel出力を新設。配布原本 `工事打合簿.xlsx`（自社ロゴ画像入り）を**ZIPとして開きセル値XMLだけ書き換える方式**（`lib/xlsxPatch.ts` の `patchXlsxCells`）で、ロゴ・罫線・結合・体裁を完全再現。exceljs の load→save は画像配置(drawing)を落とすため不採用。`lib/dailyReportExcel.ts`（`buildDailyReportCellMap`＋DL）、`components/views/DailyReport.tsx` 詳細に「⬇ Excel」ボタン追加。テンプレ＝`public/templates/daily-report-template.xlsx`（原本＝ロゴ保持、残存サンプルは実行時にクリア）。`jszip`(^3.10.1) を package.json に明記（既存の transitive を昇格）。検証：`tsc`/`next build` EXIT 0。要確認：一部セル位置（就業時間・使用機械の累計・進捗率の列割当）はサンプル出力で微調整。社外秘: AI直下の一時ファイル（サンプル/原本コピー/ロゴ抽出）はコミット前に整理。未コミット。
+
 ## Start Command
 
 Use bundled Node because npm may not be on PATH:

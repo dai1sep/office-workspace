@@ -4,6 +4,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useApp } from "@/lib/context";
 import { uid } from "@/lib/utils";
+import { downloadDailyReportExcel } from "@/lib/dailyReportExcel";
 import {
   DailyReport,
   DailyReportAttendee,
@@ -399,6 +400,7 @@ function DetailPane({ r, wsName, onClose, onEdit, onApprove, onDelete }: {
           <span className={`status ${statusColor(r.status)}`}>{statusLabel(r.status)}</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button className="ghost-button" onClick={() => downloadDailyReportExcel(r, wsName).catch((e) => alert(String(e?.message ?? e)))} style={{ fontSize: 12 }}>⬇ Excel</button>
           <button className="ghost-button" onClick={() => setPrinting(true)} style={{ fontSize: 12 }}>🖨 印刷・PDF</button>
           <button className="ghost-button" onClick={onEdit} style={{ fontSize: 12 }}>編集</button>
           <button className="ghost-button" onClick={() => { if (confirm("削除しますか？")) onDelete(); }}
