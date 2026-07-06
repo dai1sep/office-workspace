@@ -4,7 +4,7 @@
 import type { DailyReport } from "./types";
 import { patchXlsxCells } from "./xlsxPatch";
 
-const TEMPLATE_URL = "/templates/daily-report-template.xlsx";
+const TEMPLATE_URL = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/templates/daily-report-template.xlsx";
 const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
 function dparts(d?: string): { y2: string; m: string; day: string; wd: string } | null {
