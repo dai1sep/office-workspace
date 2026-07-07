@@ -29,7 +29,7 @@ async function saveWorkbook(wb: ExcelJS.Workbook, filename: string) {
    罫線・結合・レイアウトは配布原本のまま、テキストのみ埋め込む。
    ※値セルの対応は原本レイアウトに基づく。ズレがあれば下記アドレスのみ調整すればよい。
 ══════════════════════════════════════════ */
-const ORG_CHART_TEMPLATE_URL = "/templates/org-chart-template.xlsx";
+const ORG_CHART_TEMPLATE_URL = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/templates/org-chart-template.xlsx";
 
 async function loadOrgChartTemplate(): Promise<ExcelJS.Workbook> {
   const res = await fetch(ORG_CHART_TEMPLATE_URL);
@@ -106,7 +106,7 @@ export async function downloadOrgChartExcel(chart: SubcontractorOrgChart, worksp
    読み込み、指定セルへ値を差し込んで出力する。書式は配布原本を完全再現する。
    ※値セルの対応は原本レイアウトに基づく。ズレがあれば下記アドレスのみ調整すればよい。
 ══════════════════════════════════════════ */
-const SYSTEM_LEDGER_TEMPLATE_URL = "/templates/system-ledger-template.xlsx";
+const SYSTEM_LEDGER_TEMPLATE_URL = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/templates/system-ledger-template.xlsx";
 
 async function loadLedgerTemplate(): Promise<ExcelJS.Workbook> {
   const res = await fetch(SYSTEM_LEDGER_TEMPLATE_URL);

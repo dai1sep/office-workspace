@@ -8,6 +8,10 @@ const nextConfig: NextConfig = {
   basePath: isGitHubPages ? repositoryBasePath : undefined,
   assetPrefix: isGitHubPages ? repositoryBasePath : undefined,
   trailingSlash: isGitHubPages,
+  // public/ 配下のテンプレを fetch する際に付与するベースパス（Pages配信時のみ）
+  env: {
+    NEXT_PUBLIC_BASE_PATH: isGitHubPages ? repositoryBasePath : "",
+  },
   images: {
     unoptimized: true,
   },
