@@ -25,7 +25,7 @@ const NAV_ITEMS: { view: ViewId; icon: string; label: string; adminOnly?: boolea
   { view: "process", icon: "程", label: "工程管理" },
   { view: "knowledge", icon: "知", label: "ナレッジ" },
   { view: "canvas", icon: "板", label: "ホワイトボード" },
-  { view: "impactmap", icon: "地", label: "インパクトマップ" },
+  { view: "impactmap", icon: "進", label: "進捗管理" },
   { view: "licenses", icon: "証", label: "資格・許可管理" },
   { view: "dailyreport", icon: "日", label: "工事日報" },
   { view: "safetydocs", icon: "盾", label: "安全書類" },

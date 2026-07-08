@@ -23,6 +23,7 @@ import {
   upsertResourceAllocation, deleteResourceAllocation,
   upsertResourceInspection, deleteResourceInspection,
   upsertProcessTask, deleteProcessTask,
+  upsertProgressMap, deleteProgressMap,
 } from "./db";
 
 function ids(arr: { id: string }[]) {
@@ -175,4 +176,13 @@ export function syncToSupabase(prev: AppState, next: AppState) {
     if (!old || JSON.stringify(old) !== JSON.stringify(t)) upsertProcessTask(t).catch(console.error);
   });
   prevPtIds.forEach((id) => { if (!nextPtIds.has(id)) deleteProcessTask(id).catch(console.error); });
+
+  // --- ProgressMap（進捗マップ） ---
+  const prevPmIds = ids(prev.progressMaps ?? []);
+  const nextPmIds = ids(next.progressMaps ?? []);
+  (next.progressMaps ?? []).forEach((m) => {
+    const old = (prev.progressMaps ?? []).find((x) => x.id === m.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(m)) upsertProgressMap(m).catch(console.error);
+  });
+  prevPmIds.forEach((id) => { if (!nextPmIds.has(id)) deleteProgressMap(id).catch(console.error); });
 }

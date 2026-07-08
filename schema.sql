@@ -406,7 +406,17 @@ ALTER TABLE resource_allocations  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE resource_inspections  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE process_tasks         ENABLE ROW LEVEL SECURITY;
 
+-- 進捗管理（インパクトマップ）: 1マップ=1行、nodes を JSONB で保持
+CREATE TABLE IF NOT EXISTS progress_maps (
+  id         TEXT PRIMARY KEY,
+  title      TEXT NOT NULL,
+  nodes      JSONB NOT NULL DEFAULT '[]',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE progress_maps          ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "allow_all_dev" ON field_resources      FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON resource_allocations FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON resource_inspections FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON process_tasks        FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON progress_maps        FOR ALL USING (true) WITH CHECK (true);

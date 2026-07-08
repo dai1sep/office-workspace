@@ -545,6 +545,29 @@ export interface ResourceInspection {
   note?: string;
 }
 
+// ── 進捗管理（インパクトマップ：ゴール→アクター→インパクト→デリバラブルの達成度） ──
+export type ProgressNodeType = "goal" | "actor" | "impact" | "deliverable";
+export type ProgressStatus = "未着手" | "進行中" | "確認中" | "完了" | "停滞";
+
+export interface ProgressNode {
+  id: string;
+  type: ProgressNodeType;
+  label: string;
+  parentId: string | null;
+  x: number;
+  y: number;
+  status: ProgressStatus;
+  progress: number; // 0-100（葉ノードで編集、枝ノードは子から自動集計）
+  assigneeId?: string;
+  due?: string; // 期限 YYYY-MM-DD
+}
+
+export interface ProgressMap {
+  id: string;
+  title: string;
+  nodes: ProgressNode[];
+}
+
 // ── 工程管理（工事現場ごとの工程／作業をガントで管理） ──
 export type ProcessTaskStatus = "未着手" | "進行中" | "完了" | "遅延";
 
@@ -598,6 +621,7 @@ export interface AppState {
   resourceAllocations: ResourceAllocation[];
   resourceInspections: ResourceInspection[];
   processTasks: ProcessTask[];
+  progressMaps: ProgressMap[];
   primeProfile: PrimeCompanyProfile;
   uiPrefs: UiPrefs;
   bulletinSubscriptions?: string[];
