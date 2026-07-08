@@ -20,7 +20,6 @@ export type ViewId =
   | "dailyreport"
   | "impactmap"
   | "safetydocs"
-  | "fieldresources"
   | "employees"
   | "process";
 

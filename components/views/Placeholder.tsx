@@ -24,7 +24,6 @@ const LABELS: Record<ViewId, string> = {
   dailyreport: "工事日報",
   impactmap: "インパクトマップ",
   safetydocs: "安全書類",
-  fieldresources: "現場リソース管理",
   employees: "社員管理",
   process: "工程管理",
 };

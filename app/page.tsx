@@ -30,7 +30,6 @@ import LicensesView from "@/components/views/Licenses";
 import DailyReportView from "@/components/views/DailyReport";
 import ImpactMapView from "@/components/views/ImpactMap";
 import SafetyDocsView from "@/components/views/SafetyDocs";
-import FieldResourcesView from "@/components/views/FieldResources";
 import EmployeesView from "@/components/views/Employees";
 import ProcessView from "@/components/views/Process";
 import Placeholder from "@/components/views/Placeholder";
@@ -52,7 +51,7 @@ const VIEW_META: Record<ViewId, { icon: string; title: string; lead: string }> =
   facilities: { icon: "室", title: "設備予約", lead: "会議室、備品、車両の予約を確認します。" },
   timecard: { icon: "勤", title: "タイムカード", lead: "出退勤、休憩、残業見込みを確認します。" },
   admin: { icon: "管", title: "組織・権限管理", lead: "部署、役職、ロール、閲覧制御を設定します。" },
-  spaces: { icon: "工", title: "工事スペース", lead: "工事現場ごとに配属者をドラッグ操作で管理します。" },
+  spaces: { icon: "工", title: "工事スペース", lead: "工事現場ごとに配属メンバー・重機/機材の配置・稼働予定・点検をまとめて管理します。" },
   knowledge: { icon: "知", title: "ナレッジ", lead: "会議メモ、FAQ、文書を検索・整理します。" },
   canvas: { icon: "板", title: "ホワイトボード", lead: "業務フローや会議中のアイデアを付箋で整理します。" },
   search: { icon: "検", title: "横断検索", lead: "メール・掲示板・申請・予定・ファイルなどをまとめて検索します。" },
@@ -60,7 +59,6 @@ const VIEW_META: Record<ViewId, { icon: string; title: string; lead: string }> =
   dailyreport: { icon: "日", title: "工事日報", lead: "工事打合簿・品質安全日誌を記録・提出・承認します。" },
   impactmap: { icon: "地", title: "インパクトマップ", lead: "ゴール・アクター・インパクト・デリバラブルを視覚的に整理します。" },
   safetydocs: { icon: "盾", title: "安全書類", lead: "下請業者編成表・施工体制台帳などの提出様式を作成・出力します。" },
-  fieldresources: { icon: "機", title: "現場リソース管理", lead: "重機・機材・車両・人員を現場ごとに配置し、稼働予定と点検を管理します。" },
   employees: { icon: "員", title: "社員管理", lead: "社内メンバーの氏名・部署・役職・連絡先・在籍状況を管理します。" },
   process: { icon: "程", title: "工程管理", lead: "工事現場ごとの工程・作業をガントチャートで計画し、進捗を管理します。" },
 };
@@ -109,8 +107,6 @@ function ViewContent({ view }: { view: ViewId }) {
       return <ImpactMapView />;
     case "safetydocs":
       return <SafetyDocsView />;
-    case "fieldresources":
-      return <FieldResourcesView />;
     case "employees":
       return <EmployeesView />;
     case "process":
