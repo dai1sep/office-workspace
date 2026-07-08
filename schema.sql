@@ -45,8 +45,11 @@ CREATE TABLE IF NOT EXISTS schedules (
   reaction_label TEXT NOT NULL DEFAULT '確認しました',
   reactions     JSONB NOT NULL DEFAULT '[]',
   survey        JSONB,
+  workspace_id  TEXT,
   created_at    TIMESTAMPTZ DEFAULT NOW()
 );
+-- 既存環境向け（工事スペース連動）
+ALTER TABLE schedules ADD COLUMN IF NOT EXISTS workspace_id TEXT;
 
 -- 掲示板
 CREATE TABLE IF NOT EXISTS bulletins (
