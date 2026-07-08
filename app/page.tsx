@@ -31,6 +31,7 @@ import DailyReportView from "@/components/views/DailyReport";
 import ImpactMapView from "@/components/views/ImpactMap";
 import SafetyDocsView from "@/components/views/SafetyDocs";
 import FieldResourcesView from "@/components/views/FieldResources";
+import EmployeesView from "@/components/views/Employees";
 import Placeholder from "@/components/views/Placeholder";
 import { useApp } from "@/lib/context";
 import { ViewId } from "@/lib/types";
@@ -59,6 +60,7 @@ const VIEW_META: Record<ViewId, { icon: string; title: string; lead: string }> =
   impactmap: { icon: "地", title: "インパクトマップ", lead: "ゴール・アクター・インパクト・デリバラブルを視覚的に整理します。" },
   safetydocs: { icon: "盾", title: "安全書類", lead: "下請業者編成表・施工体制台帳などの提出様式を作成・出力します。" },
   fieldresources: { icon: "機", title: "現場リソース管理", lead: "重機・機材・車両・人員を現場ごとに配置し、稼働予定と点検を管理します。" },
+  employees: { icon: "員", title: "社員管理", lead: "社内メンバーの氏名・部署・役職・連絡先・在籍状況を管理します。" },
 };
 
 function ViewContent({ view }: { view: ViewId }) {
@@ -107,6 +109,8 @@ function ViewContent({ view }: { view: ViewId }) {
       return <SafetyDocsView />;
     case "fieldresources":
       return <FieldResourcesView />;
+    case "employees":
+      return <EmployeesView />;
     default:
       return <Placeholder view={view} />;
   }

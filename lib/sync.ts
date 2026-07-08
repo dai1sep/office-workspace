@@ -18,6 +18,7 @@ import {
   upsertSubcontractor, deleteSubcontractor,
   upsertOrgChart, deleteOrgChart,
   upsertSystemLedger, deleteSystemLedger,
+  upsertUser, deleteUser,
   upsertFieldResource, deleteFieldResource,
   upsertResourceAllocation, deleteResourceAllocation,
   upsertResourceInspection, deleteResourceInspection,
@@ -128,6 +129,15 @@ export function syncToSupabase(prev: AppState, next: AppState) {
     if (!old || JSON.stringify(old) !== JSON.stringify(l)) upsertSystemLedger(l).catch(console.error);
   });
   prevSlIds.forEach((id) => { if (!nextSlIds.has(id)) deleteSystemLedger(id).catch(console.error); });
+
+  // --- User（社員） ---
+  const prevUserIds = ids(prev.users);
+  const nextUserIds = ids(next.users);
+  next.users.forEach((u) => {
+    const old = prev.users.find((x) => x.id === u.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(u)) upsertUser(u).catch(console.error);
+  });
+  prevUserIds.forEach((id) => { if (!nextUserIds.has(id)) deleteUser(id).catch(console.error); });
 
   // --- FieldResource ---
   const prevFrIds = ids(prev.fieldResources ?? []);

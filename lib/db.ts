@@ -24,6 +24,24 @@ function assertSupabase() {
 
 // DBのスネークケース → TypeScriptのキャメルケース変換
 
+function toUser(r: Record<string, unknown>): User {
+  return {
+    id: r.id as string, name: r.name as string, dept: (r.dept as string) ?? "", role: (r.role as string) ?? "一般ユーザー",
+    email: (r.email as string) ?? "", ext: (r.ext as string) ?? "",
+    employeeNo: r.employee_no as string | undefined, title: r.title as string | undefined,
+    phone: r.phone as string | undefined, joinedDate: r.joined_date as string | undefined,
+    active: r.active === undefined ? true : (r.active as boolean),
+  };
+}
+
+function userRow(u: User): Record<string, unknown> {
+  return {
+    id: u.id, name: u.name, dept: u.dept, role: u.role, email: u.email, ext: u.ext,
+    employee_no: u.employeeNo ?? null, title: u.title ?? null, phone: u.phone ?? null,
+    joined_date: u.joinedDate ?? null, active: u.active === false ? false : true,
+  };
+}
+
 function toSchedule(r: Record<string, unknown>): Schedule {
   return {
     id: r.id as string,
@@ -233,7 +251,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
   ]);
 
   return {
-    users:        (users ?? []) as User[],
+    users:        (users ?? []).map((r) => toUser(r as Record<string, unknown>)),
     schedules:    (schedules ?? []).map((r) => toSchedule(r as Record<string, unknown>)),
     bulletins:    (bulletins ?? []).map((r) => ({
       id: r.id, scope: r.scope, category: r.category, title: r.title,
@@ -285,6 +303,16 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
 // ────────────────────────────────────────
 // 個別CRUD
 // ────────────────────────────────────────
+
+// --- User（社員） ---
+export async function upsertUser(u: User) {
+  const db = assertSupabase();
+  await db.from("users").upsert(userRow(u));
+}
+export async function deleteUser(id: string) {
+  const db = assertSupabase();
+  await db.from("users").delete().eq("id", id);
+}
 
 // --- Todo ---
 export async function upsertTodo(todo: Todo) {
@@ -523,7 +551,7 @@ export async function seedIfEmpty(state: AppState) {
   if ((count ?? 0) > 0) return; // すでにデータあり
 
   await Promise.all([
-    db.from("users").insert(state.users),
+    db.from("users").insert(state.users.map(userRow)),
     db.from("todos").insert(state.todos),
     db.from("facilities").insert(state.facilities.map((f) => ({
       id: f.id, name: f.name, capacity: f.capacity, equipment: f.equipment,

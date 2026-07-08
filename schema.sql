@@ -8,8 +8,19 @@ CREATE TABLE IF NOT EXISTS users (
   dept        TEXT NOT NULL DEFAULT '',
   role        TEXT NOT NULL DEFAULT '一般ユーザー',
   email       TEXT NOT NULL DEFAULT '',
-  ext         TEXT NOT NULL DEFAULT ''
+  ext         TEXT NOT NULL DEFAULT '',
+  employee_no TEXT,
+  title       TEXT,
+  phone       TEXT,
+  joined_date TEXT,
+  active      BOOLEAN NOT NULL DEFAULT true
 );
+-- 既存環境向け（社員管理の追加項目）
+ALTER TABLE users ADD COLUMN IF NOT EXISTS employee_no TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS title       TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone       TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS joined_date TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS active      BOOLEAN NOT NULL DEFAULT true;
 
 -- スケジュール
 CREATE TABLE IF NOT EXISTS schedules (

@@ -20,7 +20,8 @@ export type ViewId =
   | "dailyreport"
   | "impactmap"
   | "safetydocs"
-  | "fieldresources";
+  | "fieldresources"
+  | "employees";
 
 export interface User {
   id: string;
@@ -29,6 +30,12 @@ export interface User {
   role: string;
   email: string;
   ext: string;
+  // 社員管理の拡張項目（任意）
+  employeeNo?: string; // 社員番号
+  title?: string; // 役職（例: 部長・主任）
+  phone?: string; // 携帯・連絡先
+  joinedDate?: string; // 入社日
+  active?: boolean; // 在籍中（false=退職）
 }
 
 export interface Schedule {

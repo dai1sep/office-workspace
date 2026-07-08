@@ -25,6 +25,7 @@ const LABELS: Record<ViewId, string> = {
   impactmap: "インパクトマップ",
   safetydocs: "安全書類",
   fieldresources: "現場リソース管理",
+  employees: "社員管理",
 };
 
 export default function Placeholder({ view }: { view: ViewId }) {

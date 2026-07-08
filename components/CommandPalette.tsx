@@ -22,6 +22,7 @@ const COMMANDS: { id: ViewId; icon: string; label: string; sub: string }[] = [
   { id: "knowledge", icon: "知", label: "ナレッジ", sub: "文書とFAQ" },
   { id: "canvas", icon: "板", label: "ホワイトボード", sub: "付箋とアイデア整理" },
   { id: "admin", icon: "管", label: "組織・権限管理", sub: "ユーザーと権限" },
+  { id: "employees", icon: "員", label: "社員管理", sub: "社内メンバーの情報管理" },
   { id: "folder", icon: "個", label: "個人フォルダ", sub: "個人メモ" },
   { id: "safetydocs", icon: "盾", label: "安全書類", sub: "下請負業者編成表・施工体制台帳" },
   { id: "fieldresources", icon: "機", label: "現場リソース管理", sub: "重機・機材・車両・人員の配置" },
