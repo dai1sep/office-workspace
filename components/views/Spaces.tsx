@@ -18,6 +18,7 @@ import Modal from "@/components/Modal";
 import { useApp } from "@/lib/context";
 import { uid, userName } from "@/lib/utils";
 import type { WorkSpace } from "@/lib/types";
+import { BoardTab, LedgerTab, ScheduleTab, InspectionTab } from "@/components/views/FieldResources";
 
 const COLORS = ["#3f6b5b", "#356c8a", "#a9622a", "#b64f4f", "#5a4a8a", "#3a7a8a", "#7a5a3a", "#4a6a3a"];
 const EMPTY_FORM = { name: "", location: "", description: "", color: COLORS[0] };
@@ -188,7 +189,7 @@ function SpaceCard({
   );
 }
 
-export default function SpacesView() {
+function MemberBoard() {
   const { state, updateState } = useApp();
   const [activeDrag, setActiveDrag] = useState<{ userId: string; name: string; fromSpaceId: string | null } | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -350,5 +351,49 @@ export default function SpacesView() {
         </div>
       </Modal>
     </DndContext>
+  );
+}
+
+/* ─────────────── 統合ハブ（工事スペース＝親） ─────────────── */
+type HubTab = "members" | "resources" | "ledger" | "schedule" | "inspection";
+const HUB_TABS: { id: HubTab; label: string }[] = [
+  { id: "members", label: "メンバー配属" },
+  { id: "resources", label: "リソース配置" },
+  { id: "ledger", label: "リソース台帳" },
+  { id: "schedule", label: "稼働予定" },
+  { id: "inspection", label: "点検簿" },
+];
+
+export default function SpacesView() {
+  const [tab, setTab] = useState<HubTab>("members");
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      <div style={{ display: "flex", gap: 6, borderBottom: "1px solid var(--line)", flexWrap: "wrap" }}>
+        {HUB_TABS.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            style={{
+              background: "transparent",
+              border: "none",
+              padding: "9px 14px",
+              fontSize: 13,
+              fontWeight: tab === t.id ? 700 : 500,
+              color: tab === t.id ? "var(--text)" : "var(--muted)",
+              borderBottom: tab === t.id ? "2px solid var(--green)" : "2px solid transparent",
+              cursor: "pointer",
+              marginBottom: -1,
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {tab === "members" && <MemberBoard />}
+      {tab === "resources" && <BoardTab />}
+      {tab === "ledger" && <LedgerTab />}
+      {tab === "schedule" && <ScheduleTab />}
+      {tab === "inspection" && <InspectionTab />}
+    </div>
   );
 }

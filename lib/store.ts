@@ -227,6 +227,17 @@ const seedState: AppState = {
     { id: "ri1", resourceId: "fr1", date: "2026-06-18", inspector: "田中", result: "良", note: "始業前点検 異常なし" },
     { id: "ri2", resourceId: "fr4", date: "2026-06-17", inspector: "鈴木", result: "要注意", note: "オイル量低下" },
   ],
+  processTasks: [
+    // 田辺邸新築工事（ws1）
+    { id: "pt1", workspaceId: "ws1", name: "仮設・準備工", start: "2026-06-01", end: "2026-06-05", progress: 100, status: "完了", assigneeIds: ["u2"] },
+    { id: "pt2", workspaceId: "ws1", name: "基礎工事", start: "2026-06-06", end: "2026-06-20", progress: 70, status: "進行中", assigneeIds: ["u2", "u4"], dependsOn: ["pt1"] },
+    { id: "pt3", workspaceId: "ws1", name: "躯体工事", start: "2026-06-21", end: "2026-07-15", progress: 0, status: "未着手", assigneeIds: ["u4"], dependsOn: ["pt2"] },
+    { id: "pt4", workspaceId: "ws1", name: "上棟", start: "2026-07-15", end: "2026-07-15", progress: 0, status: "未着手", milestone: true, dependsOn: ["pt3"] },
+    { id: "pt5", workspaceId: "ws1", name: "内装・仕上工事", start: "2026-07-16", end: "2026-08-31", progress: 0, status: "未着手", dependsOn: ["pt4"] },
+    // 山田ビル改修工事（ws2）
+    { id: "pt6", workspaceId: "ws2", name: "解体・撤去", start: "2026-06-10", end: "2026-06-18", progress: 90, status: "遅延", assigneeIds: ["u5"] },
+    { id: "pt7", workspaceId: "ws2", name: "内装造作", start: "2026-06-19", end: "2026-07-10", progress: 20, status: "進行中", dependsOn: ["pt6"] },
+  ],
   primeProfile: {
     companyName: "", address: "", phone: "", representative: "",
     licenseCategory: "", licenseNumber: "", licenseIssuedDate: "",

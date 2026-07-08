@@ -26,15 +26,6 @@ import type {
   InspectionResult,
 } from "@/lib/types";
 
-type Tab = "board" | "ledger" | "schedule" | "inspection";
-
-const TABS: { id: Tab; label: string }[] = [
-  { id: "board", label: "配置ボード" },
-  { id: "ledger", label: "リソース台帳" },
-  { id: "schedule", label: "稼働予定" },
-  { id: "inspection", label: "点検簿" },
-];
-
 const TYPES: FieldResourceType[] = ["重機", "機材", "車両", "人員"];
 const STATUSES: FieldResourceStatus[] = ["稼働可", "整備中", "故障"];
 const RESULTS: InspectionResult[] = ["良", "要注意", "要修理"];
@@ -169,7 +160,7 @@ function SiteColumn({
   );
 }
 
-function BoardTab() {
+export function BoardTab() {
   const { state, updateState } = useApp();
   const [date, setDate] = useState(TODAY);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -275,7 +266,7 @@ function BoardTab() {
 /* ─────────────── リソース台帳 ─────────────── */
 const EMPTY_RES = { name: "", type: "重機" as FieldResourceType, status: "稼働可" as FieldResourceStatus, maker: "", notes: "" };
 
-function LedgerTab() {
+export function LedgerTab() {
   const { state, updateState } = useApp();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -395,7 +386,7 @@ function LedgerTab() {
 }
 
 /* ─────────────── 稼働予定 ─────────────── */
-function ScheduleTab() {
+export function ScheduleTab() {
   const { state, updateState } = useApp();
   const resources = state.fieldResources ?? [];
   const workspaces = state.workspaces ?? [];
@@ -449,7 +440,7 @@ function ScheduleTab() {
 }
 
 /* ─────────────── 点検簿 ─────────────── */
-function InspectionTab() {
+export function InspectionTab() {
   const { state, updateState } = useApp();
   const resources = state.fieldResources ?? [];
   const byId = useMemo(() => new Map(resources.map((r) => [r.id, r])), [resources]);
@@ -551,36 +542,4 @@ function InspectionTab() {
   );
 }
 
-/* ─────────────── ルート ─────────────── */
-export default function FieldResourcesView() {
-  const [tab, setTab] = useState<Tab>("board");
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", gap: 6, borderBottom: "1px solid var(--line)" }}>
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            style={{
-              background: "transparent",
-              border: "none",
-              padding: "9px 14px",
-              fontSize: 13,
-              fontWeight: tab === t.id ? 700 : 500,
-              color: tab === t.id ? "var(--text)" : "var(--muted)",
-              borderBottom: tab === t.id ? "2px solid var(--green)" : "2px solid transparent",
-              cursor: "pointer",
-              marginBottom: -1,
-            }}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-      {tab === "board" && <BoardTab />}
-      {tab === "ledger" && <LedgerTab />}
-      {tab === "schedule" && <ScheduleTab />}
-      {tab === "inspection" && <InspectionTab />}
-    </div>
-  );
-}
+/* 各タブは工事スペース（Spaces）ハブから読み込んで利用する（統合済み） */

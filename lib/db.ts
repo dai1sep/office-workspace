@@ -11,6 +11,7 @@ import type {
   Timecard, AuditLog, AddressEntry, AppState,
   Subcontractor, SubcontractorOrgChart, ConstructionSystemLedger,
   FieldResource, ResourceAllocation, ResourceInspection,
+  ProcessTask,
 } from "./types";
 
 // ────────────────────────────────────────
@@ -23,6 +24,24 @@ function assertSupabase() {
 }
 
 // DBのスネークケース → TypeScriptのキャメルケース変換
+
+function toUser(r: Record<string, unknown>): User {
+  return {
+    id: r.id as string, name: r.name as string, dept: (r.dept as string) ?? "", role: (r.role as string) ?? "一般ユーザー",
+    email: (r.email as string) ?? "", ext: (r.ext as string) ?? "",
+    employeeNo: r.employee_no as string | undefined, title: r.title as string | undefined,
+    phone: r.phone as string | undefined, joinedDate: r.joined_date as string | undefined,
+    active: r.active === undefined ? true : (r.active as boolean),
+  };
+}
+
+function userRow(u: User): Record<string, unknown> {
+  return {
+    id: u.id, name: u.name, dept: u.dept, role: u.role, email: u.email, ext: u.ext,
+    employee_no: u.employeeNo ?? null, title: u.title ?? null, phone: u.phone ?? null,
+    joined_date: u.joinedDate ?? null, active: u.active === false ? false : true,
+  };
+}
 
 function toSchedule(r: Record<string, unknown>): Schedule {
   return {
@@ -183,6 +202,33 @@ function toResourceInspection(r: Record<string, unknown>): ResourceInspection {
   };
 }
 
+function toProcessTask(r: Record<string, unknown>): ProcessTask {
+  return {
+    id: r.id as string,
+    workspaceId: r.workspace_id as string,
+    name: r.name as string,
+    category: r.category as string | undefined,
+    start: r.start as string,
+    end: r.end as string,
+    progress: (r.progress as number) ?? 0,
+    status: r.status as ProcessTask["status"],
+    assigneeIds: (r.assignee_ids as string[]) ?? undefined,
+    dependsOn: (r.depends_on as string[]) ?? undefined,
+    milestone: (r.milestone as boolean) ?? undefined,
+    color: r.color as string | undefined,
+    note: r.note as string | undefined,
+  };
+}
+
+function processTaskRow(t: ProcessTask): Record<string, unknown> {
+  return {
+    id: t.id, workspace_id: t.workspaceId, name: t.name, category: t.category ?? null,
+    start: t.start, end: t.end, progress: t.progress, status: t.status,
+    assignee_ids: t.assigneeIds ?? [], depends_on: t.dependsOn ?? [],
+    milestone: t.milestone ?? false, color: t.color ?? null, note: t.note ?? null,
+  };
+}
+
 // ────────────────────────────────────────
 // 全データ取得（初回ロード用）
 // ────────────────────────────────────────
@@ -210,6 +256,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     { data: fieldResources },
     { data: resourceAllocations },
     { data: resourceInspections },
+    { data: processTasks },
   ] = await Promise.all([
     db.from("users").select("*").order("name"),
     db.from("schedules").select("*").order("date"),
@@ -230,10 +277,11 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     db.from("field_resources").select("*").order("name"),
     db.from("resource_allocations").select("*").order("date", { ascending: false }),
     db.from("resource_inspections").select("*").order("date", { ascending: false }),
+    db.from("process_tasks").select("*").order("start"),
   ]);
 
   return {
-    users:        (users ?? []) as User[],
+    users:        (users ?? []).map((r) => toUser(r as Record<string, unknown>)),
     schedules:    (schedules ?? []).map((r) => toSchedule(r as Record<string, unknown>)),
     bulletins:    (bulletins ?? []).map((r) => ({
       id: r.id, scope: r.scope, category: r.category, title: r.title,
@@ -279,12 +327,23 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     fieldResources: (fieldResources ?? []).map((r) => toFieldResource(r as Record<string, unknown>)),
     resourceAllocations: (resourceAllocations ?? []).map((r) => toResourceAllocation(r as Record<string, unknown>)),
     resourceInspections: (resourceInspections ?? []).map((r) => toResourceInspection(r as Record<string, unknown>)),
+    processTasks: (processTasks ?? []).map((r) => toProcessTask(r as Record<string, unknown>)),
   };
 }
 
 // ────────────────────────────────────────
 // 個別CRUD
 // ────────────────────────────────────────
+
+// --- User（社員） ---
+export async function upsertUser(u: User) {
+  const db = assertSupabase();
+  await db.from("users").upsert(userRow(u));
+}
+export async function deleteUser(id: string) {
+  const db = assertSupabase();
+  await db.from("users").delete().eq("id", id);
+}
 
 // --- Todo ---
 export async function upsertTodo(todo: Todo) {
@@ -507,6 +566,16 @@ export async function deleteResourceInspection(id: string) {
   await db.from("resource_inspections").delete().eq("id", id);
 }
 
+// --- ProcessTask（工程） ---
+export async function upsertProcessTask(t: ProcessTask) {
+  const db = assertSupabase();
+  await db.from("process_tasks").upsert(processTaskRow(t));
+}
+export async function deleteProcessTask(id: string) {
+  const db = assertSupabase();
+  await db.from("process_tasks").delete().eq("id", id);
+}
+
 // --- AuditLog ---
 export async function insertAuditLog(log: AuditLog) {
   const db = assertSupabase();
@@ -523,7 +592,7 @@ export async function seedIfEmpty(state: AppState) {
   if ((count ?? 0) > 0) return; // すでにデータあり
 
   await Promise.all([
-    db.from("users").insert(state.users),
+    db.from("users").insert(state.users.map(userRow)),
     db.from("todos").insert(state.todos),
     db.from("facilities").insert(state.facilities.map((f) => ({
       id: f.id, name: f.name, capacity: f.capacity, equipment: f.equipment,
@@ -576,5 +645,6 @@ export async function seedIfEmpty(state: AppState) {
     db.from("resource_inspections").insert(state.resourceInspections.map((i) => ({
       id: i.id, resource_id: i.resourceId, date: i.date, inspector: i.inspector, result: i.result, note: i.note ?? null,
     }))),
+    db.from("process_tasks").insert(state.processTasks.map(processTaskRow)),
   ]);
 }
