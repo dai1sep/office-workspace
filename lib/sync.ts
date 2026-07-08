@@ -22,6 +22,7 @@ import {
   upsertFieldResource, deleteFieldResource,
   upsertResourceAllocation, deleteResourceAllocation,
   upsertResourceInspection, deleteResourceInspection,
+  upsertProcessTask, deleteProcessTask,
 } from "./db";
 
 function ids(arr: { id: string }[]) {
@@ -165,4 +166,13 @@ export function syncToSupabase(prev: AppState, next: AppState) {
     if (!old || JSON.stringify(old) !== JSON.stringify(i)) upsertResourceInspection(i).catch(console.error);
   });
   prevRiIds.forEach((id) => { if (!nextRiIds.has(id)) deleteResourceInspection(id).catch(console.error); });
+
+  // --- ProcessTask（工程） ---
+  const prevPtIds = ids(prev.processTasks ?? []);
+  const nextPtIds = ids(next.processTasks ?? []);
+  (next.processTasks ?? []).forEach((t) => {
+    const old = (prev.processTasks ?? []).find((x) => x.id === t.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(t)) upsertProcessTask(t).catch(console.error);
+  });
+  prevPtIds.forEach((id) => { if (!nextPtIds.has(id)) deleteProcessTask(id).catch(console.error); });
 }

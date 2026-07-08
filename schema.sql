@@ -380,10 +380,30 @@ CREATE TABLE IF NOT EXISTS resource_inspections (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 工程管理（工事現場ごとの工程／作業）
+CREATE TABLE IF NOT EXISTS process_tasks (
+  id           TEXT PRIMARY KEY,
+  workspace_id TEXT NOT NULL,
+  name         TEXT NOT NULL,
+  category     TEXT,
+  start        TEXT NOT NULL,
+  "end"        TEXT NOT NULL,
+  progress     INTEGER NOT NULL DEFAULT 0,
+  status       TEXT NOT NULL DEFAULT '未着手',
+  assignee_ids JSONB NOT NULL DEFAULT '[]',
+  depends_on   JSONB NOT NULL DEFAULT '[]',
+  milestone    BOOLEAN NOT NULL DEFAULT false,
+  color        TEXT,
+  note         TEXT,
+  created_at   TIMESTAMPTZ DEFAULT NOW()
+);
+
 ALTER TABLE field_resources       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE resource_allocations  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE resource_inspections  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE process_tasks         ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "allow_all_dev" ON field_resources      FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON resource_allocations FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON resource_inspections FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON process_tasks        FOR ALL USING (true) WITH CHECK (true);

@@ -21,7 +21,8 @@ export type ViewId =
   | "impactmap"
   | "safetydocs"
   | "fieldresources"
-  | "employees";
+  | "employees"
+  | "process";
 
 export interface User {
   id: string;
@@ -544,6 +545,25 @@ export interface ResourceInspection {
   note?: string;
 }
 
+// ── 工程管理（工事現場ごとの工程／作業をガントで管理） ──
+export type ProcessTaskStatus = "未着手" | "進行中" | "完了" | "遅延";
+
+export interface ProcessTask {
+  id: string;
+  workspaceId: string; // 対象の工事現場（WorkSpace.id）
+  name: string; // 工種・作業名（例: 掘削工）
+  category?: string; // 工区・分類（任意）
+  start: string; // 開始日 YYYY-MM-DD
+  end: string; // 終了予定日 YYYY-MM-DD
+  progress: number; // 進捗率 0-100
+  status: ProcessTaskStatus;
+  assigneeIds?: string[]; // 担当者
+  dependsOn?: string[]; // 先行工程（ProcessTask.id）
+  milestone?: boolean; // マイルストーン（点）
+  color?: string;
+  note?: string;
+}
+
 export interface UiPrefs {
   theme: "default" | "focus" | "minimal";
   density: "standard" | "compact" | "spacious";
@@ -577,6 +597,7 @@ export interface AppState {
   fieldResources: FieldResource[];
   resourceAllocations: ResourceAllocation[];
   resourceInspections: ResourceInspection[];
+  processTasks: ProcessTask[];
   primeProfile: PrimeCompanyProfile;
   uiPrefs: UiPrefs;
   bulletinSubscriptions?: string[];

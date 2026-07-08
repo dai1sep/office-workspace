@@ -22,6 +22,7 @@ const NAV_ITEMS: { view: ViewId; icon: string; label: string; adminOnly?: boolea
   { view: "employees", icon: "員", label: "社員管理" },
   { view: "admin", icon: "管", label: "組織・権限管理", adminOnly: true },
   { view: "spaces", icon: "工", label: "工事スペース" },
+  { view: "process", icon: "程", label: "工程管理" },
   { view: "fieldresources", icon: "機", label: "現場リソース管理" },
   { view: "knowledge", icon: "知", label: "ナレッジ" },
   { view: "canvas", icon: "板", label: "ホワイトボード" },

@@ -11,6 +11,7 @@ import type {
   Timecard, AuditLog, AddressEntry, AppState,
   Subcontractor, SubcontractorOrgChart, ConstructionSystemLedger,
   FieldResource, ResourceAllocation, ResourceInspection,
+  ProcessTask,
 } from "./types";
 
 // ────────────────────────────────────────
@@ -201,6 +202,33 @@ function toResourceInspection(r: Record<string, unknown>): ResourceInspection {
   };
 }
 
+function toProcessTask(r: Record<string, unknown>): ProcessTask {
+  return {
+    id: r.id as string,
+    workspaceId: r.workspace_id as string,
+    name: r.name as string,
+    category: r.category as string | undefined,
+    start: r.start as string,
+    end: r.end as string,
+    progress: (r.progress as number) ?? 0,
+    status: r.status as ProcessTask["status"],
+    assigneeIds: (r.assignee_ids as string[]) ?? undefined,
+    dependsOn: (r.depends_on as string[]) ?? undefined,
+    milestone: (r.milestone as boolean) ?? undefined,
+    color: r.color as string | undefined,
+    note: r.note as string | undefined,
+  };
+}
+
+function processTaskRow(t: ProcessTask): Record<string, unknown> {
+  return {
+    id: t.id, workspace_id: t.workspaceId, name: t.name, category: t.category ?? null,
+    start: t.start, end: t.end, progress: t.progress, status: t.status,
+    assignee_ids: t.assigneeIds ?? [], depends_on: t.dependsOn ?? [],
+    milestone: t.milestone ?? false, color: t.color ?? null, note: t.note ?? null,
+  };
+}
+
 // ────────────────────────────────────────
 // 全データ取得（初回ロード用）
 // ────────────────────────────────────────
@@ -228,6 +256,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     { data: fieldResources },
     { data: resourceAllocations },
     { data: resourceInspections },
+    { data: processTasks },
   ] = await Promise.all([
     db.from("users").select("*").order("name"),
     db.from("schedules").select("*").order("date"),
@@ -248,6 +277,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     db.from("field_resources").select("*").order("name"),
     db.from("resource_allocations").select("*").order("date", { ascending: false }),
     db.from("resource_inspections").select("*").order("date", { ascending: false }),
+    db.from("process_tasks").select("*").order("start"),
   ]);
 
   return {
@@ -297,6 +327,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     fieldResources: (fieldResources ?? []).map((r) => toFieldResource(r as Record<string, unknown>)),
     resourceAllocations: (resourceAllocations ?? []).map((r) => toResourceAllocation(r as Record<string, unknown>)),
     resourceInspections: (resourceInspections ?? []).map((r) => toResourceInspection(r as Record<string, unknown>)),
+    processTasks: (processTasks ?? []).map((r) => toProcessTask(r as Record<string, unknown>)),
   };
 }
 
@@ -535,6 +566,16 @@ export async function deleteResourceInspection(id: string) {
   await db.from("resource_inspections").delete().eq("id", id);
 }
 
+// --- ProcessTask（工程） ---
+export async function upsertProcessTask(t: ProcessTask) {
+  const db = assertSupabase();
+  await db.from("process_tasks").upsert(processTaskRow(t));
+}
+export async function deleteProcessTask(id: string) {
+  const db = assertSupabase();
+  await db.from("process_tasks").delete().eq("id", id);
+}
+
 // --- AuditLog ---
 export async function insertAuditLog(log: AuditLog) {
   const db = assertSupabase();
@@ -604,5 +645,6 @@ export async function seedIfEmpty(state: AppState) {
     db.from("resource_inspections").insert(state.resourceInspections.map((i) => ({
       id: i.id, resource_id: i.resourceId, date: i.date, inspector: i.inspector, result: i.result, note: i.note ?? null,
     }))),
+    db.from("process_tasks").insert(state.processTasks.map(processTaskRow)),
   ]);
 }

@@ -26,6 +26,7 @@ const COMMANDS: { id: ViewId; icon: string; label: string; sub: string }[] = [
   { id: "folder", icon: "個", label: "個人フォルダ", sub: "個人メモ" },
   { id: "safetydocs", icon: "盾", label: "安全書類", sub: "下請負業者編成表・施工体制台帳" },
   { id: "fieldresources", icon: "機", label: "現場リソース管理", sub: "重機・機材・車両・人員の配置" },
+  { id: "process", icon: "程", label: "工程管理", sub: "工事の工程・進捗をガント管理" },
   { id: "licenses", icon: "証", label: "資格・許可管理", sub: "建設業許可・社員資格" },
   { id: "dailyreport", icon: "日", label: "工事日報", sub: "工事打合簿・品質安全日誌" },
   { id: "impactmap", icon: "地", label: "インパクトマップ", sub: "ゴール・アクター・デリバラブル" },
