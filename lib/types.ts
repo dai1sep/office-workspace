@@ -49,6 +49,7 @@ export interface Schedule {
   type: "meeting" | "away" | "approval" | "work";
   detail: string;
   workspaceId?: string; // 紐づく工事現場（工事スペースから登録した現場予定）
+  attachments?: Attachment[];
   scheduleMode?: "single" | "multiDay" | "period" | "repeat";
   endDate?: string;
   repeatCycle?: "daily" | "weekly" | "monthly" | "yearly" | "none";
@@ -65,6 +66,15 @@ export interface Schedule {
     options: string[];
     votes: Record<string, string>;
   };
+}
+
+// 書き込み系（掲示板・スケジュール等）に直接添付するファイル（dataURLで保持）
+export interface Attachment {
+  id: string;
+  name: string;
+  type: string; // MIME種別
+  size: number; // バイト
+  dataUrl: string; // base64 データURL
 }
 
 export interface BulletinComment {
@@ -99,6 +109,7 @@ export interface Bulletin {
   publishTime?: string;
   finishTime?: string;
   relatedFiles?: string[];
+  attachments?: Attachment[];
   subscribers?: string[];
   draft?: boolean;
   survey?: {

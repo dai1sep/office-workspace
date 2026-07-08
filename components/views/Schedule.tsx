@@ -5,9 +5,10 @@ import { motion } from "framer-motion";
 import HoverCard from "@/components/HoverCard";
 import Modal from "@/components/Modal";
 import ConfirmationStatus from "@/components/ConfirmationStatus";
+import { AttachmentInput, AttachmentList } from "@/components/Attachments";
 import { useApp } from "@/lib/context";
 import { TODAY } from "@/lib/store";
-import type { AppState, Schedule } from "@/lib/types";
+import type { AppState, Schedule, Attachment } from "@/lib/types";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { uid, userName } from "@/lib/utils";
 
@@ -114,6 +115,7 @@ export default function ScheduleView() {
     visibility: "public" as "public" | "private", allowReactions: false, reactionLabel: "確認しました",
     repeatCycle: "weekly" as NonNullable<Schedule["repeatCycle"]>, repeatUntil: "", surveyQuestion: "", surveyOptions: "",
     relatedFiles: [] as string[],
+    attachments: [] as Attachment[],
   });
 
   // Virtual events from todos (appear on due date)
@@ -214,7 +216,7 @@ export default function ScheduleView() {
     const schedule: Schedule = {
       id: uid("s"), title: form.title.trim(), date: form.date, endDate: formMode === "single" ? undefined : form.endDate,
       start: form.start, end: form.end, allDay: form.allDay, location: form.location.trim(), members: form.members,
-      facilities: form.facilities, relatedFiles: form.relatedFiles, type: form.type, detail: form.detail.trim(), scheduleMode: formMode,
+      facilities: form.facilities, relatedFiles: form.relatedFiles, attachments: form.attachments, type: form.type, detail: form.detail.trim(), scheduleMode: formMode,
       repeatCycle: formMode === "repeat" ? form.repeatCycle : undefined, repeatUntil: formMode === "repeat" ? form.repeatUntil : undefined,
       visibility: form.visibility, allowReactions: form.allowReactions, reactionLabel: form.reactionLabel, reactions: [],
       survey: form.surveyQuestion.trim() ? { question: form.surveyQuestion.trim(), options: form.surveyOptions.split("\n").map((value) => value.trim()).filter(Boolean), votes: {} } : undefined,
@@ -357,6 +359,7 @@ export default function ScheduleView() {
           {conflicts().length > 0 && <div style={{ padding: 10, borderRadius: 7, background: "#fff4dc", color: "#775600", fontSize: 12 }}>同じ時間帯に参加者または設備の予定が {conflicts().length}件あります。</div>}
           <label>詳細・メモ<textarea value={form.detail} onChange={(event) => setForm({ ...form, detail: event.target.value })} rows={4} style={{ display: "block", width: "100%", marginTop: 5 }} /></label>
           <fieldset style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 12 }}><legend>関連ファイル</legend>{state.files.map((file) => <label key={file.id} style={{ display: "flex", gap: 5, marginBottom: 5 }}><input type="checkbox" checked={form.relatedFiles.includes(file.id)} onChange={() => toggleList("relatedFiles", file.id)} />{file.name}</label>)}</fieldset>
+          <fieldset style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 12 }}><legend>ファイル添付</legend><AttachmentInput value={form.attachments} onChange={(attachments) => setForm({ ...form, attachments })} /></fieldset>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}><label>公開範囲<select value={form.visibility} onChange={(event) => setForm({ ...form, visibility: event.target.value as typeof form.visibility })} style={{ display: "block", width: "100%", marginTop: 5 }}><option value="public">公開</option><option value="private">参加者のみ</option></select></label><label style={{ display: "flex", gap: 7, alignItems: "center", marginTop: 22 }}><input type="checkbox" checked={form.allowReactions} onChange={(event) => setForm({ ...form, allowReactions: event.target.checked })} />リアクションを許可</label></div>
           {form.allowReactions && <label>リアクション<select value={form.reactionLabel} onChange={(event) => setForm({ ...form, reactionLabel: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }}><option>確認しました</option><option>了解です</option><option>よろしくお願いします</option><option>いいね！</option></select></label>}
           <label>アンケート質問（任意）<input value={form.surveyQuestion} onChange={(event) => setForm({ ...form, surveyQuestion: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }} /></label>
@@ -365,7 +368,7 @@ export default function ScheduleView() {
         </div>
       </Modal>
 
-      <Modal open={Boolean(detail)} onClose={() => setDetail(null)} title="予定の詳細" width={560}>{detail && <div style={{ display: "grid", gap: 12 }}><div><span className="muted-text">{detail.date}{detail.endDate ? ` ～ ${detail.endDate}` : ""} / {scheduleTime(detail)}</span><h3 style={{ margin: "6px 0" }}>{detail.title}</h3><div>{detail.detail || "詳細はありません。"}</div></div><div className="muted-text">参加者: {detail.members.map((id) => userName(state, id)).join("、")}</div><div className="muted-text">場所: {detail.location || "未設定"}</div>{detail.workspaceId && (() => { const w = state.workspaces.find((x) => x.id === detail.workspaceId); return w ? <div className="muted-text" style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: w.color, flexShrink: 0 }} />現場: <button className="ghost-button" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => { setDetail(null); setView("spaces"); }}>{w.name} を開く →</button></div> : null; })()}{(detail.facilities ?? []).length > 0 && <div className="muted-text">設備: {(detail.facilities ?? []).map((id) => state.facilities.find((facility) => facility.id === id)?.name).filter(Boolean).join("、")}</div>}{detail.allowReactions && <ConfirmationStatus label={detail.reactionLabel ?? "確認しました"} confirmed={detail.members.filter((id) => (detail.reactions ?? []).includes(id)).map((id) => userName(state, id))} pending={detail.members.filter((id) => !(detail.reactions ?? []).includes(id)).map((id) => userName(state, id))} />}
+      <Modal open={Boolean(detail)} onClose={() => setDetail(null)} title="予定の詳細" width={560}>{detail && <div style={{ display: "grid", gap: 12 }}><div><span className="muted-text">{detail.date}{detail.endDate ? ` ～ ${detail.endDate}` : ""} / {scheduleTime(detail)}</span><h3 style={{ margin: "6px 0" }}>{detail.title}</h3><div>{detail.detail || "詳細はありません。"}</div></div><div className="muted-text">参加者: {detail.members.map((id) => userName(state, id)).join("、")}</div><div className="muted-text">場所: {detail.location || "未設定"}</div>{detail.workspaceId && (() => { const w = state.workspaces.find((x) => x.id === detail.workspaceId); return w ? <div className="muted-text" style={{ display: "flex", alignItems: "center", gap: 6 }}><span style={{ width: 8, height: 8, borderRadius: 2, background: w.color, flexShrink: 0 }} />現場: <button className="ghost-button" style={{ padding: "2px 8px", fontSize: 11 }} onClick={() => { setDetail(null); setView("spaces"); }}>{w.name} を開く →</button></div> : null; })()}{(detail.facilities ?? []).length > 0 && <div className="muted-text">設備: {(detail.facilities ?? []).map((id) => state.facilities.find((facility) => facility.id === id)?.name).filter(Boolean).join("、")}</div>}<AttachmentList items={detail.attachments} />{detail.allowReactions && <ConfirmationStatus label={detail.reactionLabel ?? "確認しました"} confirmed={detail.members.filter((id) => (detail.reactions ?? []).includes(id)).map((id) => userName(state, id))} pending={detail.members.filter((id) => !(detail.reactions ?? []).includes(id)).map((id) => userName(state, id))} />}
         {detail.allowReactions && <button className="ghost-button" onClick={react}>{detail.reactionLabel ?? "確認しました"} {(detail.reactions ?? []).length}</button>}<div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>{detail.id.startsWith("_todo_") && <button className="ghost-button" onClick={() => { setDetail(null); setView("todo"); }} style={{ color: "#b45309" }}>ToDoを開く →</button>}{detail.id.startsWith("_wf_") && <button className="ghost-button" onClick={() => { setDetail(null); setView("workflow"); }} style={{ color: "#7c3aed" }}>ワークフローを開く →</button>}{!detail.id.startsWith("_") && <button className="ghost-button" onClick={removeSchedule} style={{ color: "#a33" }}>予定を削除</button>}</div></div>}</Modal>
     </div>
   );

@@ -304,6 +304,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
       commentsList: r.comments_list ?? [],
       updatedAt: r.updated_at, publishTime: r.publish_time, finishTime: r.finish_time,
       relatedFiles: r.related_files ?? [], subscribers: r.subscribers ?? [],
+      attachments: r.attachments ?? [],
       draft: r.draft ?? false, survey: r.survey,
     })) as Bulletin[],
     workflows:    (workflows ?? []).map((r) => ({
@@ -382,7 +383,7 @@ export async function upsertSchedule(s: Schedule) {
     schedule_mode: s.scheduleMode, end_date: s.endDate,
     repeat_cycle: s.repeatCycle, repeat_until: s.repeatUntil,
     all_day: s.allDay ?? false, visibility: s.visibility ?? "public",
-    facilities: s.facilities ?? [], related_files: s.relatedFiles ?? [],
+    facilities: s.facilities ?? [], related_files: s.relatedFiles ?? [], attachments: s.attachments ?? [],
     allow_reactions: s.allowReactions ?? false, reaction_label: s.reactionLabel ?? "確認しました",
     reactions: s.reactions ?? [], survey: s.survey ?? null,
   });
@@ -404,7 +405,7 @@ export async function upsertBulletin(b: Bulletin) {
     reaction_label: b.reactionLabel, reactions: b.reactions,
     comments_list: b.commentsList,
     updated_at: b.updatedAt, publish_time: b.publishTime, finish_time: b.finishTime,
-    related_files: b.relatedFiles ?? [], subscribers: b.subscribers ?? [],
+    related_files: b.relatedFiles ?? [], attachments: b.attachments ?? [], subscribers: b.subscribers ?? [],
     draft: b.draft ?? false, survey: b.survey ?? null,
   });
 }
