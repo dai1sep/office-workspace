@@ -2,6 +2,7 @@
 // exceljsでコード上に再構築し、フォームデータを差し込んで.xlsxとして書き出す。
 import ExcelJS from "exceljs";
 import type { ConstructionSystemLedger, SubcontractorOrgChart } from "./types";
+import { printWorksheet } from "./xlsxToPrintHtml";
 
 // ISO日付(YYYY-MM-DD)を「YYYY年M月D日」に整形。空なら空文字。
 function jaDate(iso?: string): string {
@@ -100,6 +101,14 @@ export async function downloadOrgChartExcel(chart: SubcontractorOrgChart, worksp
   await saveWorkbook(wb, `下請負業者編成表_${workspaceName}.xlsx`);
 }
 
+// 印刷/PDF：Excelと同じ差し込み済みテンプレートを描画して印刷する（様式どおりの見た目）。
+export async function printOrgChart(chart: SubcontractorOrgChart, workspaceName: string) {
+  const wb = await loadOrgChartTemplate();
+  const ws = wb.worksheets[0];
+  fillOrgChartSheet(ws, chart);
+  printWorksheet(ws, `下請負業者編成表 ${workspaceName}`);
+}
+
 /* ══════════════════════════════════════════
    施工体制台帳（正式Excel様式へ差し込み）
    public/templates/system-ledger-template.xlsx（罫線・結合を保持した空欄ひな型）を
@@ -167,4 +176,12 @@ export async function downloadSystemLedgerExcel(l: ConstructionSystemLedger, wor
   const ws = wb.worksheets[0];
   fillSystemLedgerSheet(ws, l);
   await saveWorkbook(wb, `施工体制台帳_${workspaceName}_${l.subCompanyName || "下請"}.xlsx`);
+}
+
+// 印刷/PDF：Excelと同じ差し込み済みテンプレートを描画して印刷する（様式どおりの見た目）。
+export async function printSystemLedger(l: ConstructionSystemLedger, workspaceName: string) {
+  const wb = await loadLedgerTemplate();
+  const ws = wb.worksheets[0];
+  fillSystemLedgerSheet(ws, l);
+  printWorksheet(ws, `施工体制台帳 ${workspaceName}`);
 }
