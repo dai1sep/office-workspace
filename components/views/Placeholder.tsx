@@ -22,7 +22,7 @@ const LABELS: Record<ViewId, string> = {
   search: "検索",
   licenses: "資格・許可管理",
   dailyreport: "工事日報",
-  impactmap: "インパクトマップ",
+  impactmap: "進捗管理",
   safetydocs: "安全書類",
   employees: "社員管理",
   process: "工程管理",

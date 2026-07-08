@@ -240,6 +240,28 @@ const seedState: AppState = {
     { id: "pt6", workspaceId: "ws2", name: "解体・撤去", start: "2026-06-10", end: "2026-06-18", progress: 90, status: "遅延", assigneeIds: ["u5"] },
     { id: "pt7", workspaceId: "ws2", name: "内装造作", start: "2026-06-19", end: "2026-07-10", progress: 20, status: "進行中", dependsOn: ["pt6"] },
   ],
+  progressMaps: [
+    {
+      id: "pm1",
+      title: "新規顧客獲得で売上30%増",
+      nodes: [
+        { id: "g1", type: "goal", label: "新規顧客獲得で\n売上30%増を達成", parentId: null, x: 0, y: 0, status: "進行中", progress: 0, due: "2026-09-30" },
+        { id: "a1", type: "actor", label: "見込み顧客", parentId: "g1", x: 300, y: -220, status: "進行中", progress: 0 },
+        { id: "a2", type: "actor", label: "既存顧客", parentId: "g1", x: 300, y: 0, status: "進行中", progress: 0 },
+        { id: "a3", type: "actor", label: "営業チーム", parentId: "g1", x: 300, y: 220, status: "未着手", progress: 0, assigneeId: "u1" },
+        { id: "i1", type: "impact", label: "サービスを\n友人に紹介する", parentId: "a1", x: 590, y: -300, status: "進行中", progress: 0 },
+        { id: "i2", type: "impact", label: "問い合わせを\n自発的に増やす", parentId: "a1", x: 590, y: -140, status: "進行中", progress: 0 },
+        { id: "i3", type: "impact", label: "リピート購入\nを増やす", parentId: "a2", x: 590, y: 60, status: "進行中", progress: 0 },
+        { id: "i4", type: "impact", label: "提案数・商談数\nを増やす", parentId: "a3", x: 590, y: 260, status: "未着手", progress: 0 },
+        { id: "d1", type: "deliverable", label: "紹介キャンペーン\nLP制作", parentId: "i1", x: 880, y: -340, status: "完了", progress: 100, assigneeId: "u4", due: "2026-06-20" },
+        { id: "d2", type: "deliverable", label: "SNS広告\n運用開始", parentId: "i1", x: 880, y: -240, status: "進行中", progress: 55, assigneeId: "u2", due: "2026-07-10" },
+        { id: "d3", type: "deliverable", label: "チャットbot\n導入", parentId: "i2", x: 880, y: -140, status: "未着手", progress: 0, due: "2026-08-01" },
+        { id: "d4", type: "deliverable", label: "会員特典\nプログラム策定", parentId: "i3", x: 880, y: 60, status: "停滞", progress: 20, assigneeId: "u5", due: "2026-06-30" },
+        { id: "d5", type: "deliverable", label: "営業支援ツール\n整備", parentId: "i4", x: 880, y: 220, status: "未着手", progress: 0, assigneeId: "u3" },
+        { id: "d6", type: "deliverable", label: "提案資料\nテンプレ化", parentId: "i4", x: 880, y: 320, status: "確認中", progress: 75, assigneeId: "u1", due: "2026-07-05" },
+      ],
+    },
+  ],
   primeProfile: {
     companyName: "", address: "", phone: "", representative: "",
     licenseCategory: "", licenseNumber: "", licenseIssuedDate: "",

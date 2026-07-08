@@ -11,7 +11,7 @@ import type {
   Timecard, AuditLog, AddressEntry, AppState,
   Subcontractor, SubcontractorOrgChart, ConstructionSystemLedger,
   FieldResource, ResourceAllocation, ResourceInspection,
-  ProcessTask,
+  ProcessTask, ProgressMap,
 } from "./types";
 
 // ────────────────────────────────────────
@@ -230,6 +230,14 @@ function processTaskRow(t: ProcessTask): Record<string, unknown> {
   };
 }
 
+function toProgressMap(r: Record<string, unknown>): ProgressMap {
+  return {
+    id: r.id as string,
+    title: r.title as string,
+    nodes: (r.nodes as ProgressMap["nodes"]) ?? [],
+  };
+}
+
 // ────────────────────────────────────────
 // 全データ取得（初回ロード用）
 // ────────────────────────────────────────
@@ -258,6 +266,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     { data: resourceAllocations },
     { data: resourceInspections },
     { data: processTasks },
+    { data: progressMaps },
   ] = await Promise.all([
     db.from("users").select("*").order("name"),
     db.from("schedules").select("*").order("date"),
@@ -279,6 +288,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     db.from("resource_allocations").select("*").order("date", { ascending: false }),
     db.from("resource_inspections").select("*").order("date", { ascending: false }),
     db.from("process_tasks").select("*").order("start"),
+    db.from("progress_maps").select("*").order("title"),
   ]);
 
   return {
@@ -329,6 +339,7 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     resourceAllocations: (resourceAllocations ?? []).map((r) => toResourceAllocation(r as Record<string, unknown>)),
     resourceInspections: (resourceInspections ?? []).map((r) => toResourceInspection(r as Record<string, unknown>)),
     processTasks: (processTasks ?? []).map((r) => toProcessTask(r as Record<string, unknown>)),
+    progressMaps: (progressMaps ?? []).map((r) => toProgressMap(r as Record<string, unknown>)),
   };
 }
 
@@ -577,6 +588,16 @@ export async function deleteProcessTask(id: string) {
   await db.from("process_tasks").delete().eq("id", id);
 }
 
+// --- ProgressMap（進捗マップ） ---
+export async function upsertProgressMap(m: ProgressMap) {
+  const db = assertSupabase();
+  await db.from("progress_maps").upsert({ id: m.id, title: m.title, nodes: m.nodes });
+}
+export async function deleteProgressMap(id: string) {
+  const db = assertSupabase();
+  await db.from("progress_maps").delete().eq("id", id);
+}
+
 // --- AuditLog ---
 export async function insertAuditLog(log: AuditLog) {
   const db = assertSupabase();
@@ -647,5 +668,6 @@ export async function seedIfEmpty(state: AppState) {
       id: i.id, resource_id: i.resourceId, date: i.date, inspector: i.inspector, result: i.result, note: i.note ?? null,
     }))),
     db.from("process_tasks").insert(state.processTasks.map(processTaskRow)),
+    db.from("progress_maps").insert(state.progressMaps.map((m) => ({ id: m.id, title: m.title, nodes: m.nodes }))),
   ]);
 }
