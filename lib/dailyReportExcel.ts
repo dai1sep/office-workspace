@@ -1,8 +1,10 @@
 // 工事日報（工事打合簿）の Excel 出力。
 // public/templates/daily-report-template.xlsx（第一建設機工ロゴ入りの配布原本）へ
 // セル値だけを差し込み、書式・ロゴを完全再現して出力する。
+import ExcelJS from "exceljs";
 import type { DailyReport } from "./types";
 import { patchXlsxCells } from "./xlsxPatch";
+import { printWorksheet } from "./xlsxToPrintHtml";
 
 const TEMPLATE_URL = (process.env.NEXT_PUBLIC_BASE_PATH ?? "") + "/templates/daily-report-template.xlsx";
 const DAYS = ["日", "月", "火", "水", "木", "金", "土"];
@@ -84,4 +86,18 @@ export async function downloadDailyReportExcel(r: DailyReport, wsName: string) {
   a.download = `工事打合簿_${wsName}_${r.implementDate || ""}.xlsx`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+// 印刷/PDF：Excelと同じテンプレート＋セルマップを描画して印刷する（様式どおりの見た目）。
+// ※ロゴ画像はVML浮動画像のため、この描画（罫線・値の様式再現）には含まれない。
+export async function printDailyReport(r: DailyReport, wsName: string) {
+  const res = await fetch(TEMPLATE_URL);
+  if (!res.ok) throw new Error("工事打合簿テンプレートを読み込めませんでした（public/templates を確認してください）");
+  const buf = await res.arrayBuffer();
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  const ws = wb.worksheets[0];
+  const map = buildDailyReportCellMap(r, wsName);
+  for (const [ref, val] of Object.entries(map)) ws.getCell(ref).value = val === "" ? null : val;
+  printWorksheet(ws, `工事打合簿 ${wsName}`);
 }

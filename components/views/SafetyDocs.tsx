@@ -13,169 +13,9 @@ import type {
   SubcontractorOrgChart,
 } from "@/lib/types";
 import { uid } from "@/lib/utils";
-import { downloadOrgChartExcel, downloadSystemLedgerExcel } from "@/lib/safetyDocsExcel";
+import { downloadOrgChartExcel, downloadSystemLedgerExcel, printOrgChart, printSystemLedger } from "@/lib/safetyDocsExcel";
 
 type Tab = "master" | "orgchart" | "ledger";
-
-const esc = (s?: string | number | null) =>
-  String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-/* ══════════════════════════════════════════
-   下請負業者編成表（全建統一様式第１号－乙）印刷HTML
-══════════════════════════════════════════ */
-function buildOrgChartPrintHtml(chart: SubcontractorOrgChart, workspaceName: string): string {
-  const B = "border:1px solid #000;";
-  const H = `${B}background:#f0f0f0;font-weight:bold;text-align:center;padding:2px 4px;font-size:9px;`;
-  const D = `${B}padding:2px 4px;vertical-align:middle;font-size:9.5px;`;
-
-  const primary = chart.entries.find((e) => e.tier === 1);
-  const tierEntries = (tier: 2 | 3 | 4) =>
-    [1, 2, 3].map((slot) => chart.entries.find((e) => e.tier === tier && e.slot === slot));
-
-  const period = (e?: OrgChartEntry) => (e?.periodStart || e?.periodEnd ? `${esc(e?.periodStart)} ～ ${esc(e?.periodEnd)}` : "");
-
-  const primaryBlock = primary ? `
-    <table style="margin-bottom:1px">
-      <colgroup><col style="width:10%"><col style="width:14%"><col><col style="width:14%"><col></colgroup>
-      <tr><td rowspan="6" style="${H}">${esc(primary.jobType) || "工事"}</td><td style="${H}">会社名</td><td style="${D}" colspan="3">${esc(primary.companyName)}</td></tr>
-      <tr><td style="${H}">代表者名</td><td style="${D}" colspan="3">${esc(primary.representative)}</td></tr>
-      <tr><td style="${H}">建設業許可番号</td><td style="${D}">${esc(primary.licenseNumber)}</td><td style="${H}">安全衛生責任者</td><td style="${D}">${esc(primary.safetyOfficer)}</td></tr>
-      <tr><td style="${H}">主任技術者</td><td style="${D}">${esc(primary.chiefEngineer)}</td><td style="${H}">専門技術者</td><td style="${D}">${esc(primary.specialistEngineer)}</td></tr>
-      <tr><td style="${H}">担当工事内容</td><td style="${D}">${esc(primary.workContent)}</td><td style="${H}">特定専門工事の有無</td><td style="${D}">${primary.hasSpecialWork ? "有" : "無"}</td></tr>
-      <tr><td style="${H}">登録基幹技能者</td><td style="${D}">${esc(primary.registeredSkilledWorker)}</td><td style="${H}">工期</td><td style="${D}">${period(primary)}</td></tr>
-    </table>` : "";
-
-  const tierBlock = (label: string, entries: (OrgChartEntry | undefined)[]) => `
-    <div style="${H}text-align:left;padding:3px 6px;margin-top:4px">${label}</div>
-    <table style="margin-bottom:1px">
-      <colgroup><col style="width:33.3%"><col style="width:33.3%"><col style="width:33.4%"></colgroup>
-      <tr>${entries.map((e) => `<td style="${H}">${esc(e?.jobType) || "&nbsp;"}</td>`).join("")}</tr>
-      <tr>${entries.map((e) => `<td style="padding:0"><table style="width:100%;border-collapse:collapse">
-        <tr><td style="${H}width:34%">会社名</td><td style="${D}">${esc(e?.companyName)}</td></tr>
-        <tr><td style="${H}">代表者名</td><td style="${D}">${esc(e?.representative)}</td></tr>
-        <tr><td style="${H}">建設業許可番号</td><td style="${D}">${esc(e?.licenseNumber)}</td></tr>
-        <tr><td style="${H}">安全衛生責任者</td><td style="${D}">${esc(e?.safetyOfficer)}</td></tr>
-        <tr><td style="${H}">主任技術者</td><td style="${D}">${esc(e?.chiefEngineer)}</td></tr>
-        <tr><td style="${H}">専門技術者</td><td style="${D}">${esc(e?.specialistEngineer)}</td></tr>
-        <tr><td style="${H}">担当工事内容</td><td style="${D}">${esc(e?.workContent)}</td></tr>
-        <tr><td style="${H}">特定専門工事の該当</td><td style="${D}">${e?.hasSpecialWork ? "有" : e ? "無" : ""}</td></tr>
-        <tr><td style="${H}">工期</td><td style="${D}">${period(e)}</td></tr>
-      </table></td>`).join("")}</tr>
-    </table>`;
-
-  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
-<title>下請負業者編成表 ${esc(workspaceName)}</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:"ＭＳ ゴシック","MS Gothic","Yu Gothic",sans-serif;font-size:10px;color:#000;background:#fff;padding:6mm}
-  h1{font-size:13px;text-align:center;padding:3px 0;font-weight:bold}
-  .sub{font-size:9px;text-align:right;margin-bottom:2px}
-  table{width:100%;border-collapse:collapse;table-layout:fixed}
-  @media print{@page{size:A4 portrait;margin:8mm}body{font-size:9.5px;padding:0}}
-</style></head><body>
-<div class="sub">全建統一様式第１号－乙　　作成日：${esc(chart.createdDate)}</div>
-<h1>下請負業者編成表</h1>
-<div style="font-size:10px;margin:4px 0">工事名：${esc(workspaceName)}</div>
-<div style="${H}text-align:left;padding:3px 6px">（一次下請負業者＝作成下請負業者）</div>
-${primaryBlock}
-${tierBlock("（二次下請負業者）", tierEntries(2))}
-${tierBlock("（三次下請負業者）", tierEntries(3))}
-${tierBlock("（四次下請負業者）", tierEntries(4))}
-<div style="font-size:9px;margin-top:6px;line-height:1.6">
-  （記入要領）<br/>
-  1．一次下請負業者は、二次下請負業者以下の業者から提出された「届出書」(様式第１号－甲) に基づいて本表を作成の上、元請に届け出ること。<br/>
-  2．この下請負業者編成表でまとめきれない場合には、本様式をコピーするなどして適宜使用すること。<br/>
-  3．二次下請負業者を使用しない場合は、この書類は提出不要。
-</div>
-<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
-</body></html>`;
-}
-
-/* ══════════════════════════════════════════
-   施工体制台帳 印刷HTML
-══════════════════════════════════════════ */
-function buildLedgerPrintHtml(l: ConstructionSystemLedger, workspaceName: string): string {
-  const B = "border:1px solid #000;";
-  const H = `${B}background:#f0f0f0;font-weight:bold;text-align:center;padding:2px 4px;font-size:9px;`;
-  const D = `${B}padding:2px 4px;vertical-align:middle;font-size:9.5px;`;
-
-  const insRow = (ins: ConstructionSystemLedgerInsurance) => `
-    <tr>
-      <td style="${H}">健康保険</td><td style="${D}text-align:center">${esc(ins.health)}</td>
-      <td style="${H}">厚生年金保険</td><td style="${D}text-align:center">${esc(ins.pension)}</td>
-      <td style="${H}">雇用保険</td><td style="${D}text-align:center">${esc(ins.employment)}</td>
-    </tr>`;
-
-  const partyTable = (title: string, p: {
-    companyName: string; address: string; phone?: string; representative: string;
-    licenseCategory: string; licenseNumber: string; licenseIssuedDate: string;
-    workTitle: string; ordererNameAddress?: string; periodStart: string; periodEnd: string; contractDate: string;
-    insurance: ConstructionSystemLedgerInsurance; siteAgent: string;
-    chiefEngineerName: string; chiefEngineerFullTime?: string; chiefEngineerQualification?: string;
-    specialistEngineerName?: string; safetyOfficerName: string; safetyPromoterName?: string; laborManagerName?: string;
-  }) => `
-    <table style="margin-bottom:2px">
-      <colgroup><col style="width:32%"><col></colgroup>
-      <tr><td colspan="2" style="${H}font-size:10px;padding:4px">${title}</td></tr>
-      <tr><td style="${H}">会社名</td><td style="${D}">${esc(p.companyName)}</td></tr>
-      <tr><td style="${H}">住所</td><td style="${D}">${esc(p.address)}${p.phone ? `（TEL：${esc(p.phone)}）` : ""}</td></tr>
-      <tr><td style="${H}">代表者名</td><td style="${D}">${esc(p.representative)}</td></tr>
-      <tr><td style="${H}">建設業の許可</td><td style="${D}">${esc(p.licenseCategory)}　${esc(p.licenseNumber)}　（${esc(p.licenseIssuedDate)}）</td></tr>
-      <tr><td style="${H}">工事名称及び工事内容</td><td style="${D}">${esc(p.workTitle)}</td></tr>
-      ${p.ordererNameAddress !== undefined ? `<tr><td style="${H}">発注者名及び住所</td><td style="${D}">${esc(p.ordererNameAddress)}</td></tr>` : ""}
-      <tr><td style="${H}">工期</td><td style="${D}">自　${esc(p.periodStart)}　至　${esc(p.periodEnd)}</td></tr>
-      <tr><td style="${H}">契約日</td><td style="${D}">${esc(p.contractDate)}</td></tr>
-      ${insRow(p.insurance)}
-      <tr><td style="${H}">現場代理人名</td><td style="${D}">${esc(p.siteAgent)}</td></tr>
-      <tr><td style="${H}">主任（監理）技術者名</td><td style="${D}">${esc(p.chiefEngineerName)}${p.chiefEngineerFullTime ? `（${esc(p.chiefEngineerFullTime)}）` : ""}${p.chiefEngineerQualification ? `　資格：${esc(p.chiefEngineerQualification)}` : ""}</td></tr>
-      ${p.specialistEngineerName !== undefined ? `<tr><td style="${H}">専門技術者名</td><td style="${D}">${esc(p.specialistEngineerName)}</td></tr>` : ""}
-      <tr><td style="${H}">安全衛生責任者名</td><td style="${D}">${esc(p.safetyOfficerName)}</td></tr>
-      ${p.safetyPromoterName !== undefined ? `<tr><td style="${H}">安全衛生推進者名</td><td style="${D}">${esc(p.safetyPromoterName)}</td></tr>` : ""}
-      ${p.laborManagerName !== undefined ? `<tr><td style="${H}">雇用管理責任者名</td><td style="${D}">${esc(p.laborManagerName)}</td></tr>` : ""}
-    </table>`;
-
-  return `<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
-<title>施工体制台帳 ${esc(workspaceName)}</title>
-<style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:"ＭＳ ゴシック","MS Gothic","Yu Gothic",sans-serif;font-size:10px;color:#000;background:#fff;padding:6mm}
-  h1{font-size:13px;text-align:center;padding:3px 0;font-weight:bold}
-  .sub{font-size:9px;text-align:right;margin-bottom:2px}
-  table{width:100%;border-collapse:collapse;table-layout:fixed}
-  .cols{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-  @media print{@page{size:A4 landscape;margin:8mm}body{font-size:9px;padding:0}}
-</style></head><body>
-<div class="sub">作成日：${esc(l.createdDate)}</div>
-<h1>施工体制台帳</h1>
-<div style="font-size:10px;margin:4px 0">工事名：${esc(workspaceName)}</div>
-<div class="cols">
-  ${partyTable("《元請に関する事項》", {
-    companyName: l.primeCompanyName, address: l.primeAddress, phone: l.primePhone, representative: l.primeRepresentative,
-    licenseCategory: l.primeLicenseCategory, licenseNumber: l.primeLicenseNumber, licenseIssuedDate: l.primeLicenseIssuedDate,
-    workTitle: l.primeWorkTitle, ordererNameAddress: l.primeOrdererNameAddress, periodStart: l.primePeriodStart, periodEnd: l.primePeriodEnd, contractDate: l.primeContractDate,
-    insurance: l.primeInsurance, siteAgent: l.primeSiteAgent,
-    chiefEngineerName: l.primeChiefEngineerName, chiefEngineerFullTime: l.primeChiefEngineerFullTime, chiefEngineerQualification: l.primeChiefEngineerQualification,
-    specialistEngineerName: l.primeSpecialistEngineerName, safetyOfficerName: l.primeSafetyOfficerName,
-    safetyPromoterName: l.primeSafetyPromoterName, laborManagerName: l.primeLaborManagerName,
-  })}
-  ${partyTable("《下請負人に関する事項》", {
-    companyName: l.subCompanyName, address: l.subAddress, representative: l.subRepresentative,
-    licenseCategory: l.subLicenseCategory, licenseNumber: l.subLicenseNumber, licenseIssuedDate: l.subLicenseIssuedDate,
-    workTitle: l.subWorkTitle, periodStart: l.subPeriodStart, periodEnd: l.subPeriodEnd, contractDate: l.subContractDate,
-    insurance: l.subInsurance, siteAgent: l.subSiteAgent,
-    chiefEngineerName: l.subChiefEngineerName, safetyOfficerName: l.subSafetyOfficerName,
-  })}
-</div>
-<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();};};<\/script>
-</body></html>`;
-}
-
-function openPrintHtml(html: string) {
-  const blob = new Blob([html], { type: "text/html" });
-  const url = URL.createObjectURL(blob);
-  const w = window.open(url, "_blank", "width=1000,height=780");
-  if (w) { setTimeout(() => URL.revokeObjectURL(url), 10000); }
-}
 
 /* ══════════════════════════════════════════
    小さな入力ヘルパー
@@ -364,7 +204,7 @@ export default function SafetyDocsView() {
               </button>
               <div style={{ display: "flex", gap: 6 }}>
                 <button className="ghost-button" onClick={() => openOrgChartEdit(c)}>編集</button>
-                <button className="ghost-button" onClick={() => openPrintHtml(buildOrgChartPrintHtml(c, wsName(c.workspaceId)))}>🖨 印刷</button>
+                <button className="ghost-button" onClick={() => printOrgChart(c, wsName(c.workspaceId))}>🖨 印刷</button>
                 <button className="ghost-button" onClick={() => downloadOrgChartExcel(c, wsName(c.workspaceId))}>⬇ Excel</button>
                 <button className="ghost-button" onClick={() => deleteOrgChart(c.id)} style={{ color: "#a33" }}>削除</button>
               </div>
@@ -389,7 +229,7 @@ export default function SafetyDocsView() {
               <div><strong>{wsName(l.workspaceId)}</strong><div className="muted-text">下請：{l.subCompanyName || "（未入力）"} / 作成日 {l.createdDate}</div></div>
               <div style={{ display: "flex", gap: 6 }}>
                 <button className="ghost-button" onClick={() => openLedgerEdit(l)}>編集</button>
-                <button className="ghost-button" onClick={() => openPrintHtml(buildLedgerPrintHtml(l, wsName(l.workspaceId)))}>🖨 印刷</button>
+                <button className="ghost-button" onClick={() => printSystemLedger(l, wsName(l.workspaceId))}>🖨 印刷</button>
                 <button className="ghost-button" onClick={() => downloadSystemLedgerExcel(l, wsName(l.workspaceId))}>⬇ Excel</button>
                 <button className="ghost-button" onClick={() => deleteLedger(l.id)} style={{ color: "#a33" }}>削除</button>
               </div>
@@ -482,7 +322,7 @@ export default function SafetyDocsView() {
             );
           })}
           <div style={{ display: "flex", gap: 7 }}>
-            <button className="ghost-button" onClick={() => openPrintHtml(buildOrgChartPrintHtml(ocDetail, wsName(ocDetail.workspaceId)))}>🖨 印刷</button>
+            <button className="ghost-button" onClick={() => printOrgChart(ocDetail, wsName(ocDetail.workspaceId))}>🖨 印刷</button>
             <button className="ghost-button" onClick={() => downloadOrgChartExcel(ocDetail, wsName(ocDetail.workspaceId))}>⬇ Excelダウンロード</button>
           </div>
         </div>}
