@@ -24,6 +24,8 @@ const seedState: AppState = {
     { id: "s7", title: "直帰予定", date: TODAY, start: "18:15", end: "18:45", location: "顧客先", members: ["u3"], type: "away", detail: "メッセージで共有済み。" },
     { id: "s8", title: "資料レビュー", date: "2026-06-20", start: "10:00", end: "11:00", location: "会議室B", members: ["u1", "u2"], type: "work", detail: "提案資料の確認。" },
     { id: "s9", title: "月次報告準備", date: "2026-06-21", start: "14:00", end: "15:00", location: "管理部", members: ["u3"], type: "work", detail: "月次報告の下書きを作成。" },
+    { id: "s10", title: "基礎コンクリート打設", date: "2026-06-20", start: "08:00", end: "17:00", location: "大阪市住吉区", members: ["u2", "u4"], type: "work", detail: "生コン打設。ポンプ車手配済み。", workspaceId: "ws1" },
+    { id: "s11", title: "内装造作 立会い", date: "2026-06-23", start: "13:00", end: "15:00", location: "神戸市中央区", members: ["u5"], type: "work", detail: "内装業者と仕様確認。", workspaceId: "ws2" },
   ],
   bulletins: [
     { id: "b1", scope: "全社", category: "全社連絡", title: "夏季休暇の運用について", author: "人事部", comments: 3, date: TODAY, publishAt: TODAY, finishAt: "2026-07-31", body: "夏季休暇の申請期限と代理承認者の設定を確認してください。", pinned: true, important: true, read: false, allowComments: true, allowReactions: true, reactionLabel: "確認しました", reactions: ["u1", "u2", "u3"], commentsList: [] },

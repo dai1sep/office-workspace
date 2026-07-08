@@ -48,6 +48,7 @@ export interface Schedule {
   members: string[];
   type: "meeting" | "away" | "approval" | "work";
   detail: string;
+  workspaceId?: string; // 紐づく工事現場（工事スペースから登録した現場予定）
   scheduleMode?: "single" | "multiDay" | "period" | "repeat";
   endDate?: string;
   repeatCycle?: "daily" | "weekly" | "monthly" | "yearly" | "none";

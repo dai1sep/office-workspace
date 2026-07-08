@@ -17,7 +17,8 @@ import { motion } from "framer-motion";
 import Modal from "@/components/Modal";
 import { useApp } from "@/lib/context";
 import { uid, userName } from "@/lib/utils";
-import type { WorkSpace } from "@/lib/types";
+import { TODAY } from "@/lib/store";
+import type { WorkSpace, Schedule } from "@/lib/types";
 import { BoardTab, LedgerTab, ScheduleTab, InspectionTab } from "@/components/views/FieldResources";
 
 const COLORS = ["#3f6b5b", "#356c8a", "#a9622a", "#b64f4f", "#5a4a8a", "#3a7a8a", "#7a5a3a", "#4a6a3a"];
@@ -129,11 +130,13 @@ function SpaceCard({
   const { setNodeRef, isOver } = useDroppable({ id: `space::${space.id}` });
 
   const linkedSchedules = useMemo(() => {
-    return state.schedules
-      .filter((s) => s.members.some((m) => space.memberIds.includes(m)))
+    // この現場に直接紐づく予定を優先し、足りなければ配属メンバー由来の予定で補完
+    const direct = state.schedules.filter((s) => s.workspaceId === space.id);
+    const byMember = state.schedules.filter((s) => !s.workspaceId && s.members.some((m) => space.memberIds.includes(m)));
+    return [...direct, ...byMember]
       .sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start))
       .slice(0, 4);
-  }, [state.schedules, space.memberIds]);
+  }, [state.schedules, space.id, space.memberIds]);
 
   return (
     <motion.div
@@ -354,10 +357,215 @@ function MemberBoard() {
   );
 }
 
+/* ─────────────── 現場予定（工事スペース → 全体スケジュール連動） ─────────────── */
+const SCHEDULE_TYPES: { value: Schedule["type"]; label: string }[] = [
+  { value: "work", label: "作業・現場" },
+  { value: "meeting", label: "会議・打合せ" },
+  { value: "away", label: "外出・出張" },
+  { value: "approval", label: "承認・確認" },
+];
+
+type SiteForm = {
+  id: string | null;
+  title: string;
+  date: string;
+  endDate: string;
+  start: string;
+  end: string;
+  type: Schedule["type"];
+  location: string;
+  detail: string;
+  members: string[];
+};
+
+function SiteScheduleTab() {
+  const { state, updateState } = useApp();
+  const workspaces = state.workspaces ?? [];
+  const [wsId, setWsId] = useState<string>(workspaces[0]?.id ?? "");
+  const [form, setForm] = useState<SiteForm | null>(null);
+
+  const ws = workspaces.find((w) => w.id === wsId);
+  const siteSchedules = useMemo(
+    () =>
+      state.schedules
+        .filter((s) => s.workspaceId === wsId)
+        .sort((a, b) => a.date.localeCompare(b.date) || a.start.localeCompare(b.start)),
+    [state.schedules, wsId],
+  );
+
+  function openNew() {
+    if (!ws) return;
+    setForm({
+      id: null, title: "", date: TODAY, endDate: TODAY, start: "09:00", end: "17:00",
+      type: "work", location: ws.location ?? "", detail: "", members: [...ws.memberIds],
+    });
+  }
+  function openEdit(s: Schedule) {
+    setForm({
+      id: s.id, title: s.title, date: s.date, endDate: s.endDate ?? s.date, start: s.start, end: s.end,
+      type: s.type, location: s.location, detail: s.detail, members: [...s.members],
+    });
+  }
+  function patch(p: Partial<SiteForm>) {
+    setForm((f) => (f ? { ...f, ...p } : f));
+  }
+  function toggleMember(id: string) {
+    setForm((f) => (f ? { ...f, members: f.members.includes(id) ? f.members.filter((m) => m !== id) : [...f.members, id] } : f));
+  }
+  function save() {
+    if (!form || !form.title.trim() || !wsId) return;
+    const multiDay = form.endDate && form.endDate !== form.date;
+    updateState((prev) => {
+      const base: Schedule = {
+        id: form.id ?? uid("s"),
+        title: form.title.trim(),
+        date: form.date,
+        endDate: multiDay ? form.endDate : undefined,
+        start: form.start,
+        end: form.end,
+        location: form.location.trim(),
+        members: form.members,
+        type: form.type,
+        detail: form.detail.trim(),
+        workspaceId: wsId,
+        scheduleMode: multiDay ? "multiDay" : "single",
+      };
+      const exists = prev.schedules.some((s) => s.id === base.id);
+      return {
+        ...prev,
+        schedules: exists ? prev.schedules.map((s) => (s.id === base.id ? { ...s, ...base } : s)) : [...prev.schedules, base],
+      };
+    });
+    setForm(null);
+  }
+  function remove(id: string) {
+    updateState((prev) => ({ ...prev, schedules: prev.schedules.filter((s) => s.id !== id) }));
+    setForm(null);
+  }
+
+  const inputStyle: React.CSSProperties = { display: "block", width: "100%", marginTop: 5 };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {/* 工事現場セレクタ */}
+      <div className="panel" style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 12 }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, flex: 1, minWidth: 240 }}>
+          {workspaces.map((w) => (
+            <button
+              key={w.id}
+              onClick={() => setWsId(w.id)}
+              style={{
+                padding: "7px 14px", borderRadius: 999,
+                border: `1px solid ${wsId === w.id ? w.color : "var(--line)"}`,
+                background: wsId === w.id ? w.color : "transparent",
+                color: wsId === w.id ? "#fff" : "var(--text)",
+                fontWeight: wsId === w.id ? 600 : 400, fontSize: 13,
+              }}
+            >
+              {w.name}
+            </button>
+          ))}
+        </div>
+        <button className="primary-button" onClick={openNew} disabled={!wsId}>＋ 現場予定を追加</button>
+      </div>
+
+      <div className="panel" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ width: 8, height: 8, borderRadius: 2, background: ws?.color ?? "var(--muted)" }} />
+        <span className="muted-text">ここで登録した予定は全体スケジュール・ホーム画面にも自動で反映されます</span>
+      </div>
+
+      {/* 現場予定リスト */}
+      {siteSchedules.length === 0 ? (
+        <div className="panel" style={{ textAlign: "center", padding: "40px 20px", color: "var(--muted)" }}>
+          この工事現場の予定はまだありません。「現場予定を追加」から登録してください。
+        </div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {siteSchedules.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => openEdit(s)}
+              className="panel"
+              style={{ display: "flex", alignItems: "center", gap: 12, textAlign: "left", padding: "12px 14px", borderLeft: `4px solid ${ws?.color ?? "var(--green)"}` }}
+            >
+              <div style={{ minWidth: 96, flexShrink: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{s.date.slice(5)}{s.endDate ? `〜${s.endDate.slice(5)}` : ""}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)" }}>{s.allDay ? "終日" : `${s.start}–${s.end}`}</div>
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.title}</div>
+                <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {SCHEDULE_TYPES.find((t) => t.value === s.type)?.label}
+                  {s.location ? ` ・ ${s.location}` : ""}
+                  {s.members.length ? ` ・ ${s.members.map((id) => userName(state, id)).join("、")}` : ""}
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* 追加・編集モーダル */}
+      <Modal open={!!form} onClose={() => setForm(null)} title={form?.id ? "現場予定を編集" : "現場予定を追加"} width={480}>
+        {form && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <label>件名 <span style={{ color: "var(--red)" }}>*</span>
+              <input value={form.title} onChange={(e) => patch({ title: e.target.value })} placeholder="例: 基礎コンクリート打設" style={inputStyle} autoFocus />
+            </label>
+            <div style={{ display: "flex", gap: 12 }}>
+              <label style={{ flex: 1 }}>開始日<input type="date" value={form.date} onChange={(e) => patch({ date: e.target.value })} style={inputStyle} /></label>
+              <label style={{ flex: 1 }}>終了日<input type="date" value={form.endDate} min={form.date} onChange={(e) => patch({ endDate: e.target.value })} style={inputStyle} /></label>
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <label style={{ flex: 1 }}>開始時刻<input type="time" value={form.start} onChange={(e) => patch({ start: e.target.value })} style={inputStyle} /></label>
+              <label style={{ flex: 1 }}>終了時刻<input type="time" value={form.end} onChange={(e) => patch({ end: e.target.value })} style={inputStyle} /></label>
+            </div>
+            <div style={{ display: "flex", gap: 12 }}>
+              <label style={{ flex: 1 }}>種別
+                <select value={form.type} onChange={(e) => patch({ type: e.target.value as Schedule["type"] })} style={inputStyle}>
+                  {SCHEDULE_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </label>
+              <label style={{ flex: 1 }}>場所<input value={form.location} onChange={(e) => patch({ location: e.target.value })} style={inputStyle} /></label>
+            </div>
+            <div>
+              <span style={{ fontSize: 13 }}>参加者（配属メンバーを初期選択）</span>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                {state.users.filter((u) => u.active !== false).map((u) => {
+                  const on = form.members.includes(u.id);
+                  const member = ws?.memberIds.includes(u.id);
+                  return (
+                    <button key={u.id} onClick={() => toggleMember(u.id)}
+                      style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, border: `1px solid ${on ? "var(--green)" : "var(--line)"}`, background: on ? "rgba(63,107,91,0.12)" : "transparent", color: on ? "var(--green)" : "var(--text)", fontWeight: member ? 600 : 400 }}
+                      title={member ? "この現場の配属メンバー" : undefined}>
+                      {u.name}{member ? " ★" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            <label>メモ<textarea value={form.detail} onChange={(e) => patch({ detail: e.target.value })} rows={2} style={inputStyle} /></label>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, marginTop: 2 }}>
+              {form.id ? (
+                <button className="danger-text" onClick={() => remove(form.id!)} style={{ border: 0, background: "transparent" }}>削除</button>
+              ) : <span />}
+              <div style={{ display: "flex", gap: 10 }}>
+                <button className="ghost-button" onClick={() => setForm(null)}>キャンセル</button>
+                <button className="primary-button" onClick={save} disabled={!form.title.trim()}>保存</button>
+              </div>
+            </div>
+          </div>
+        )}
+      </Modal>
+    </div>
+  );
+}
+
 /* ─────────────── 統合ハブ（工事スペース＝親） ─────────────── */
-type HubTab = "members" | "resources" | "ledger" | "schedule" | "inspection";
+type HubTab = "members" | "siteSchedule" | "resources" | "ledger" | "schedule" | "inspection";
 const HUB_TABS: { id: HubTab; label: string }[] = [
   { id: "members", label: "メンバー配属" },
+  { id: "siteSchedule", label: "現場予定" },
   { id: "resources", label: "リソース配置" },
   { id: "ledger", label: "リソース台帳" },
   { id: "schedule", label: "稼働予定" },
@@ -390,6 +598,7 @@ export default function SpacesView() {
         ))}
       </div>
       {tab === "members" && <MemberBoard />}
+      {tab === "siteSchedule" && <SiteScheduleTab />}
       {tab === "resources" && <BoardTab />}
       {tab === "ledger" && <LedgerTab />}
       {tab === "schedule" && <ScheduleTab />}
