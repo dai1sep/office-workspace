@@ -12,13 +12,14 @@ import type { AppState, Schedule, Attachment } from "@/lib/types";
 import { useIsMobile } from "@/lib/useIsMobile";
 import { uid, userName } from "@/lib/utils";
 
-type ViewMode = "groupDay" | "groupWeek" | "personalDay" | "personalWeek" | "personalMonth" | "personalYear";
+type ViewMode = "groupDay" | "groupWeek" | "site" | "personalDay" | "personalWeek" | "personalMonth" | "personalYear";
 type FormMode = "single" | "multiDay" | "period" | "repeat";
 
 const VIEW_MODES: Array<[ViewMode, string]> = [
-  ["groupDay", "グループ日"], ["groupWeek", "グループ週"], ["personalDay", "個人日"],
+  ["groupDay", "グループ日"], ["groupWeek", "グループ週"], ["site", "工事別"], ["personalDay", "個人日"],
   ["personalWeek", "個人週"], ["personalMonth", "個人月"], ["personalYear", "個人年"],
 ];
+const PROCESS_STATUS_COLOR: Record<string, string> = { 未着手: "#9a9488", 進行中: "#c08a2d", 完了: "#3f6b5b", 遅延: "#c2410c" };
 const FORM_MODES: Array<[FormMode, string]> = [
   ["single", "通常予定"], ["multiDay", "翌日以降まで続く予定"],
   ["period", "期間予定"], ["repeat", "繰り返し予定"],
@@ -146,6 +147,19 @@ export default function ScheduleView() {
       })),
   [state.workflows, me]);
 
+  // 設備予約の統合：スケジュールと重複しない（予定にひも付いていない）予約だけをカレンダーに載せる
+  const resVirtual = useMemo<Schedule[]>(() =>
+    (state.reservations ?? [])
+      .filter((r) => !state.schedules.some((s) => (s.facilities ?? []).includes(r.facilityId) && s.date === r.date && s.start === r.start))
+      .map((r) => ({
+        id: `_res_${r.id}`, title: `${state.facilities.find((f) => f.id === r.facilityId)?.name ?? "設備"}｜${r.title}`,
+        date: r.date, start: r.start, end: r.end, allDay: false,
+        members: r.members, type: "meeting" as const, location: "設備予約", detail: "",
+        scheduleMode: "single" as const, visibility: "public" as const,
+        reactions: [], facilities: [r.facilityId], relatedFiles: [],
+      })),
+  [state.reservations, state.schedules, state.facilities]);
+
   const departments = useMemo(() => ["すべて", ...Array.from(new Set(state.users.map((user) => user.dept)))], [state.users]);
   const users = useMemo(() => state.users.filter((user) => department === "すべて" || user.dept === department), [state.users, department]);
   const visibleUsers = users.slice(page * 10, page * 10 + 10);
@@ -161,10 +175,11 @@ export default function ScheduleView() {
   });
   const schedulesFor = useCallback((userId: string, iso: string) => {
     const regular = matchingSchedules.filter((s) => s.members.includes(userId) && occursOn(s, iso));
+    const res = resVirtual.filter((r) => r.members.includes(userId) && r.date === iso);
     const todos = mode.startsWith("personal") ? todoVirtual.filter((t) => t.date === iso && t.members.includes(userId)) : [];
     const wfs = mode.startsWith("personal") ? wfVirtual.filter((w) => w.date === iso) : [];
-    return [...regular, ...todos, ...wfs].sort((a, b) => a.start.localeCompare(b.start));
-  }, [matchingSchedules, todoVirtual, wfVirtual, mode]);
+    return [...regular, ...res, ...todos, ...wfs].sort((a, b) => a.start.localeCompare(b.start));
+  }, [matchingSchedules, resVirtual, todoVirtual, wfVirtual, mode]);
   const adjustmentSlots = useMemo(() => {
     const slots: Array<{ date: string; start: string; end: string }> = [];
     for (let day = 0; day < 14 && slots.length < 24; day += 1) {
@@ -324,6 +339,48 @@ export default function ScheduleView() {
             <span className="muted-text">{page * 10 + 1}–{Math.min(page * 10 + 10, users.length)} / {users.length}名</span>
             <button className="ghost-button" disabled={(page + 1) * 10 >= users.length} onClick={() => setPage((value) => value + 1)}>次の10名</button>
           </div>
+        </motion.section>
+      )}
+
+      {mode === "site" && (
+        <motion.section key="site" className="panel schedule-grid-panel" initial={{ opacity: 0, x: 22 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .2 }} style={{ overflowX: "auto", padding: 0 }}>
+          <div style={{ padding: "8px 12px", borderBottom: "1px solid var(--line)", fontSize: 11.5, color: "var(--muted)" }}>
+            現場ごとに<strong style={{ color: "var(--text)" }}>現場予定・工期</strong>（クリックで詳細）、<span style={{ color: "#c08a2d", fontWeight: 700 }}>⚙工程</span>、<span>🚜リソース配置</span>を重ねて表示します。参加者に関係なく現場単位で確認できます。
+          </div>
+          {(state.workspaces ?? []).length === 0 ? (
+            <div className="muted-text" style={{ padding: 24, textAlign: "center" }}>工事現場（工事スペース）がありません。</div>
+          ) : (
+            <div style={{ minWidth: isMobile ? mobileNameWidth + displayDates.length * 132 : 160 + displayDates.length * 132 }}>
+              <div style={{ display: "grid", gridTemplateColumns: `${isMobile ? `${mobileNameWidth}px` : "160px"} repeat(${displayDates.length}, minmax(132px, 1fr))`, position: fixedDates ? "sticky" : "static", top: 0, zIndex: 3, background: "var(--panel)", borderBottom: "1px solid var(--line)" }}>
+                <strong style={{ padding: 12 }}>工事現場</strong>{displayDates.map((iso) => <strong key={iso} style={{ padding: 12, textAlign: "center", borderLeft: "1px solid var(--line)" }}>{fmt(iso)}</strong>)}
+              </div>
+              {(state.workspaces ?? []).map((ws, index) => (
+                <motion.div key={ws.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: Math.min(index * .03, .16) }} style={{ display: "grid", gridTemplateColumns: `${isMobile ? `${mobileNameWidth}px` : "160px"} repeat(${displayDates.length}, minmax(132px, 1fr))`, borderBottom: "1px solid var(--line)" }}>
+                  <div style={{ padding: "10px 8px", display: "flex", alignItems: "center", gap: 7 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 3, background: ws.color, flexShrink: 0 }} />
+                    <strong style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={ws.name}>{ws.name}</strong>
+                  </div>
+                  {displayDates.map((iso) => {
+                    const wsScheds = matchingSchedules.filter((s) => s.workspaceId === ws.id && occursOn(s, iso));
+                    const procs = (state.processTasks ?? []).filter((t) => t.workspaceId === ws.id && t.start <= iso && iso <= t.end);
+                    const allocs = (state.resourceAllocations ?? []).filter((a) => a.workspaceId === ws.id && a.date === iso);
+                    return (
+                      <div key={iso} style={{ padding: 6, minHeight: 62, borderLeft: "1px solid var(--line)", background: iso === TODAY ? "color-mix(in srgb, var(--green) 6%, var(--bg))" : "transparent" }}>
+                        {wsScheds.map((s) => <ScheduleCard key={s.id} schedule={s} state={state} onOpen={() => setDetail(s)} />)}
+                        {procs.map((t) => (
+                          <div key={t.id} title={`工程: ${t.name}（${t.status} ${t.progress}%）`} style={{ fontSize: 10.5, fontWeight: 700, padding: "3px 6px", borderRadius: 5, marginBottom: 4, background: `${PROCESS_STATUS_COLOR[t.status] ?? "#8a8578"}22`, color: PROCESS_STATUS_COLOR[t.status] ?? "#8a8578", borderLeft: `3px solid ${PROCESS_STATUS_COLOR[t.status] ?? "#8a8578"}`, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>⚙ {t.name} {t.progress}%</div>
+                        ))}
+                        {allocs.map((a) => (
+                          <div key={a.id} title="リソース配置" style={{ fontSize: 10, padding: "2px 6px", borderRadius: 5, marginBottom: 3, background: "var(--soft)", color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>🚜 {state.fieldResources.find((r) => r.id === a.resourceId)?.name ?? "リソース"}</div>
+                        ))}
+                        {wsScheds.length === 0 && procs.length === 0 && allocs.length === 0 && <span style={{ fontSize: 11, color: "var(--line)" }}>—</span>}
+                      </div>
+                    );
+                  })}
+                </motion.div>
+              ))}
+            </div>
+          )}
         </motion.section>
       )}
 
