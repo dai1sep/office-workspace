@@ -174,12 +174,15 @@ export default function ScheduleView() {
     return !query || text.includes(query.toLowerCase());
   });
   const schedulesFor = useCallback((userId: string, iso: string) => {
-    const regular = matchingSchedules.filter((s) => s.members.includes(userId) && occursOn(s, iso));
+    // その人が配属されている工事現場（工事スペース）を動的に判定
+    const myWs = new Set((state.workspaces ?? []).filter((w) => w.memberIds.includes(userId)).map((w) => w.id));
+    // 予定の参加者に入っている or 紐づく現場に配属されていれば、その人の予定として表示
+    const regular = matchingSchedules.filter((s) => (s.members.includes(userId) || (s.workspaceId && myWs.has(s.workspaceId))) && occursOn(s, iso));
     const res = resVirtual.filter((r) => r.members.includes(userId) && r.date === iso);
     const todos = mode.startsWith("personal") ? todoVirtual.filter((t) => t.date === iso && t.members.includes(userId)) : [];
     const wfs = mode.startsWith("personal") ? wfVirtual.filter((w) => w.date === iso) : [];
     return [...regular, ...res, ...todos, ...wfs].sort((a, b) => a.start.localeCompare(b.start));
-  }, [matchingSchedules, resVirtual, todoVirtual, wfVirtual, mode]);
+  }, [matchingSchedules, resVirtual, todoVirtual, wfVirtual, mode, state.workspaces]);
   const adjustmentSlots = useMemo(() => {
     const slots: Array<{ date: string; start: string; end: string }> = [];
     for (let day = 0; day < 14 && slots.length < 24; day += 1) {
