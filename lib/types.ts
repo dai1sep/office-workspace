@@ -581,7 +581,9 @@ export interface Deal {
   sector: SectorKind;   // 当面は民間のみ、官公庁は将来接続
   workspaceId?: string; // 受注で生成/紐付けた工事現場（WorkSpace.id）
   estimateRef?: string; // 将来の積算AI/入札結果DB連携用ID（今は任意）
-  dueDate?: string;     // 提出/完成などの期日
+  execDate?: string;    // 実行日（単日：着手指示・契約日など）
+  termStart?: string;   // 工期 開始日
+  termEnd?: string;     // 工期 終了日
   createdAt: string;
   notes?: string;
 }

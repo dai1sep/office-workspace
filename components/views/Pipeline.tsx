@@ -10,7 +10,7 @@ import Modal from "@/components/Modal";
 import { useApp } from "@/lib/context";
 import { uid, userName } from "@/lib/utils";
 import { TODAY } from "@/lib/store";
-import type { Deal, DealStage, Customer, SectorKind, WorkSpace } from "@/lib/types";
+import type { Deal, DealStage, Customer, SectorKind, WorkSpace, Schedule } from "@/lib/types";
 
 const STAGES: { id: DealStage; color: string }[] = [
   { id: "引合", color: "#8a8578" },
@@ -30,7 +30,8 @@ function yen(n?: number) { return n == null ? "—" : "¥" + n.toLocaleString("j
 function CardInner({ deal, customerName, owner, ws, dragging }: {
   deal: Deal; customerName: string; owner: string; ws?: WorkSpace; dragging?: boolean;
 }) {
-  const overdue = deal.dueDate && deal.dueDate < TODAY && deal.stage !== "完成" && !deal.lost;
+  const overdue = deal.termEnd && deal.termEnd < TODAY && deal.stage !== "完成" && !deal.lost;
+  const md = (d: string) => d.slice(5).replace("-", "/");
   return (
     <div style={{
       background: "var(--panel)", border: "1px solid var(--line)", borderLeft: `4px solid ${deal.lost ? LOST_COLOR : STAGE_COLOR[deal.stage]}`,
@@ -44,8 +45,13 @@ function CardInner({ deal, customerName, owner, ws, dragging }: {
       <div style={{ fontSize: 11, color: "var(--muted)" }}>{customerName}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
         <span style={{ fontSize: 12.5, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{yen(deal.amount)}</span>
-        {deal.dueDate && <span style={{ fontSize: 10.5, color: overdue ? "var(--orange)" : "var(--muted)", fontWeight: overdue ? 700 : 400 }}>期日 {deal.dueDate.slice(5)}{overdue ? " ⚠" : ""}</span>}
+        {deal.execDate && <span style={{ fontSize: 10.5, color: "var(--muted)" }}>実行 {md(deal.execDate)}</span>}
       </div>
+      {(deal.termStart || deal.termEnd) && (
+        <div style={{ fontSize: 10.5, color: overdue ? "var(--orange)" : "var(--muted)", fontWeight: overdue ? 700 : 400, fontVariantNumeric: "tabular-nums" }}>
+          工期 {deal.termStart ? md(deal.termStart) : "—"}〜{deal.termEnd ? md(deal.termEnd) : "—"}{overdue ? " ⚠" : ""}
+        </div>
+      )}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 6 }}>
         <span style={{ fontSize: 10.5, color: "var(--muted)" }}>{owner ? `担当 ${owner}` : "担当 未設定"}</span>
         {ws && <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 999, background: `${ws.color}22`, color: ws.color }}>🏗 {ws.name.length > 8 ? ws.name.slice(0, 8) + "…" : ws.name}</span>}
@@ -103,7 +109,9 @@ type Form = {
   ownerId: string;
   amount: string;
   sector: SectorKind;
-  dueDate: string;
+  execDate: string;
+  termStart: string;
+  termEnd: string;
   estimateRef: string;
   notes: string;
   lost: boolean;
@@ -177,14 +185,14 @@ export default function PipelineView() {
   function openNew() {
     setForm({
       id: null, customerId: customers[0]?.id ?? "", newCustomer: customers.length === 0, newCustomerName: "", newCustomerKind: "民間",
-      title: "", stage: "引合", ownerId: "", amount: "", sector: "民間", dueDate: "", estimateRef: "", notes: "", lost: false,
+      title: "", stage: "引合", ownerId: "", amount: "", sector: "民間", execDate: "", termStart: "", termEnd: "", estimateRef: "", notes: "", lost: false,
     });
   }
   function openEdit(d: Deal) {
     setForm({
       id: d.id, customerId: d.customerId, newCustomer: false, newCustomerName: "", newCustomerKind: "民間",
       title: d.title, stage: d.stage, ownerId: d.ownerId ?? "", amount: d.amount != null ? String(d.amount) : "",
-      sector: d.sector, dueDate: d.dueDate ?? "", estimateRef: d.estimateRef ?? "", notes: d.notes ?? "", lost: d.lost ?? false,
+      sector: d.sector, execDate: d.execDate ?? "", termStart: d.termStart ?? "", termEnd: d.termEnd ?? "", estimateRef: d.estimateRef ?? "", notes: d.notes ?? "", lost: d.lost ?? false,
     });
   }
   function patch(p: Partial<Form>) { setForm((f) => (f ? { ...f, ...p } : f)); }
@@ -212,22 +220,43 @@ export default function PipelineView() {
       sector: form.sector,
       workspaceId: form.id ? deals.find((d) => d.id === form.id)?.workspaceId : undefined,
       estimateRef: form.estimateRef.trim() || undefined,
-      dueDate: form.dueDate || undefined,
+      execDate: form.execDate || undefined,
+      termStart: form.termStart || undefined,
+      termEnd: form.termEnd || undefined,
       createdAt: form.id ? deals.find((d) => d.id === form.id)?.createdAt ?? TODAY : TODAY,
       notes: form.notes.trim() || undefined,
     };
+    const termSchedId = `s_term_${base.id}`;
     updateState((prev) => {
       const exists = prev.deals.some((d) => d.id === base.id);
+      // 受注後（現場あり）に工期が入っていればスケジュールへ自動反映
+      const ws = base.workspaceId ? prev.workspaces.find((w) => w.id === base.workspaceId) : undefined;
+      const reflect = ws && base.termStart && base.termEnd && !base.lost;
+      let schedules = prev.schedules.filter((s) => s.id !== termSchedId);
+      if (reflect) {
+        const termSched: Schedule = {
+          id: termSchedId, title: `${base.title}（工期）`, date: base.termStart!, endDate: base.termEnd!,
+          start: "08:00", end: "17:00", allDay: true, location: ws!.location ?? "",
+          members: ws!.memberIds.length ? ws!.memberIds : base.ownerId ? [base.ownerId] : [],
+          type: "work", detail: "案件パイプラインの工期から自動反映", workspaceId: ws!.id, scheduleMode: "multiDay",
+        };
+        schedules = [...schedules, termSched];
+      }
       return {
         ...prev,
         customers: newCust ? [...prev.customers, newCust] : prev.customers,
         deals: exists ? prev.deals.map((d) => (d.id === base.id ? base : d)) : [base, ...prev.deals],
+        schedules,
       };
     });
     setForm(null);
   }
   function remove(id: string) {
-    updateState((prev) => ({ ...prev, deals: prev.deals.filter((d) => d.id !== id) }));
+    updateState((prev) => ({
+      ...prev,
+      deals: prev.deals.filter((d) => d.id !== id),
+      schedules: prev.schedules.filter((s) => s.id !== `s_term_${id}`),
+    }));
     setForm(null);
   }
   function createWorkspaceFromForm() {
@@ -325,8 +354,16 @@ export default function PipelineView() {
               <label className="field" style={{ flex: 1 }}><span>金額（円）</span><input value={form.amount} onChange={(e) => patch({ amount: e.target.value })} inputMode="numeric" placeholder="例: 24000000" style={{ display: "block", width: "100%", marginTop: 4 }} /></label>
             </div>
             <div style={{ display: "flex", gap: 12 }}>
-              <label className="field" style={{ flex: 1 }}><span>期日</span><input type="date" value={form.dueDate} onChange={(e) => patch({ dueDate: e.target.value })} style={{ display: "block", width: "100%", marginTop: 4 }} /></label>
+              <label className="field" style={{ flex: 1 }}><span>実行日</span><input type="date" value={form.execDate} onChange={(e) => patch({ execDate: e.target.value })} style={{ display: "block", width: "100%", marginTop: 4 }} /></label>
               <label className="field" style={{ flex: 1 }}><span>見積/積算ID（任意）</span><input value={form.estimateRef} onChange={(e) => patch({ estimateRef: e.target.value })} placeholder="将来の積算AI/入札DB連携用" style={{ display: "block", width: "100%", marginTop: 4 }} /></label>
+            </div>
+            <div className="field">
+              <span>工期{editingDeal?.workspaceId ? "（入力するとこの現場のスケジュールに自動反映）" : "（受注して現場を作成するとスケジュールへ反映されます）"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
+                <input type="date" value={form.termStart} onChange={(e) => patch({ termStart: e.target.value })} style={{ flex: 1 }} />
+                <span style={{ color: "var(--muted)" }}>〜</span>
+                <input type="date" value={form.termEnd} min={form.termStart} onChange={(e) => patch({ termEnd: e.target.value })} style={{ flex: 1 }} />
+              </div>
             </div>
             <label className="field"><span>メモ</span><textarea value={form.notes} onChange={(e) => patch({ notes: e.target.value })} rows={2} style={{ display: "block", width: "100%", marginTop: 4 }} /></label>
             {form.id && <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13 }}><input type="checkbox" checked={form.lost} onChange={(e) => patch({ lost: e.target.checked })} style={{ width: "auto" }} />失注として扱う</label>}
