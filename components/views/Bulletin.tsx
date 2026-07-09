@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import Modal from "@/components/Modal";
 import ConfirmationStatus from "@/components/ConfirmationStatus";
+import { AttachmentInput, AttachmentList } from "@/components/Attachments";
 import { useApp } from "@/lib/context";
-import type { Bulletin } from "@/lib/types";
+import type { Bulletin, Attachment } from "@/lib/types";
 import { uid, userName } from "@/lib/utils";
 
 type ListMode = "latest" | "mine" | "drafts";
@@ -15,6 +16,7 @@ const EMPTY_FORM = {
   publishAt: new Date().toISOString().slice(0, 10), publishTime: "09:00", finishAt: "", finishTime: "18:00",
   allowComments: true, allowReactions: true, reactionLabel: "確認しました", surveyQuestion: "", surveyOptions: "",
   relatedFiles: [] as string[],
+  attachments: [] as Attachment[],
 };
 function formFrom(item: Bulletin) {
   return {
@@ -22,6 +24,7 @@ function formFrom(item: Bulletin) {
     important: item.important, publishAt: item.publishAt, publishTime: item.publishTime ?? "09:00",
     finishAt: item.finishAt, finishTime: item.finishTime ?? "18:00", allowComments: item.allowComments,
     allowReactions: item.allowReactions, reactionLabel: item.reactionLabel, relatedFiles: item.relatedFiles ?? [],
+    attachments: item.attachments ?? [],
     surveyQuestion: item.survey?.question ?? "", surveyOptions: item.survey?.options.join("\n") ?? "",
   };
 }
@@ -74,7 +77,7 @@ export default function BulletinView() {
       comments: existing?.comments ?? 0, date: existing?.date ?? now.slice(0, 10), updatedAt: now, publishAt: form.publishAt, publishTime: form.publishTime,
       finishAt: form.finishAt, finishTime: form.finishTime, body: form.body, pinned: false, important: form.important,
       read: true, allowComments: form.allowComments, allowReactions: form.allowReactions, reactionLabel: form.reactionLabel,
-      reactions: existing?.reactions ?? [], commentsList: existing?.commentsList ?? [], subscribers: existing?.subscribers ?? [me], relatedFiles: form.relatedFiles, draft,
+      reactions: existing?.reactions ?? [], commentsList: existing?.commentsList ?? [], subscribers: existing?.subscribers ?? [me], relatedFiles: form.relatedFiles, attachments: form.attachments, draft,
       survey: form.surveyQuestion.trim() ? { question: form.surveyQuestion.trim(), options: form.surveyOptions.split("\n").map((value) => value.trim()).filter(Boolean), votes: existing?.survey?.votes ?? {} } : undefined,
     };
     updateState((prev) => ({ ...prev, bulletins: existing ? prev.bulletins.map((value) => value.id === existing.id ? item : value) : [item, ...prev.bulletins] }));
@@ -151,7 +154,7 @@ export default function BulletinView() {
           <div className="panel-title">掲示一覧 <span className="muted-text">{list.length}件</span></div>
           {list.length === 0 && <div className="muted-text" style={{ padding: 20, textAlign: "center" }}>該当する掲示はありません。</div>}
           <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }} initial="hidden" animate="show">
-          {list.map((item) => <motion.button variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { duration: 0.16 } } }} whileHover={{ backgroundColor: "var(--soft)" }} key={item.id} onClick={() => item.draft ? (setForm({ ...EMPTY_FORM, title: item.title, body: item.body, scope: item.scope, category: item.category, important: item.important, publishAt: item.publishAt, publishTime: item.publishTime ?? "09:00", finishAt: item.finishAt, finishTime: item.finishTime ?? "18:00", allowComments: item.allowComments, allowReactions: item.allowReactions, reactionLabel: item.reactionLabel, relatedFiles: item.relatedFiles ?? [], surveyQuestion: item.survey?.question ?? "", surveyOptions: item.survey?.options.join("\n") ?? "" }), setFormOpen(true)) : openDetail(item.id)} style={{ width: "100%", border: 0, borderBottom: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "13px 4px", textAlign: "left", display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12 }}><div>{item.pinned && <span style={{ marginRight: 6 }}>固定</span>}<strong>{item.title}</strong><div className="muted-text" style={{ marginTop: 4 }}>{item.category} / {item.scope} / {item.author} / 更新 {item.updatedAt?.slice(0, 10) ?? item.date}</div></div><div style={{ textAlign: "right" }}><span style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "var(--soft)" }}>{stateLabel(item)}</span><div className="muted-text" style={{ marginTop: 5 }}>コメント {item.comments} / 反応 {item.reactions.length}</div></div></motion.button>)}
+          {list.map((item) => <motion.button variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { duration: 0.16 } } }} whileHover={{ backgroundColor: "var(--soft)" }} key={item.id} onClick={() => item.draft ? (setForm(formFrom(item)), setFormOpen(true)) : openDetail(item.id)} style={{ width: "100%", border: 0, borderBottom: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "13px 4px", textAlign: "left", display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12 }}><div>{item.pinned && <span style={{ marginRight: 6 }}>固定</span>}<strong>{item.title}</strong><div className="muted-text" style={{ marginTop: 4 }}>{item.category} / {item.scope} / {item.author} / 更新 {item.updatedAt?.slice(0, 10) ?? item.date}</div></div><div style={{ textAlign: "right" }}><span style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "var(--soft)" }}>{stateLabel(item)}</span><div className="muted-text" style={{ marginTop: 5 }}>コメント {item.comments} / 反応 {item.reactions.length}</div></div></motion.button>)}
           </motion.div>
         </section>
       </motion.div>
@@ -163,6 +166,7 @@ export default function BulletinView() {
           <label>本文<textarea value={form.body} onChange={(event) => setForm({ ...form, body: event.target.value })} rows={8} style={{ display: "block", width: "100%", marginTop: 5 }} /></label>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}><label>掲載開始日<input type="date" value={form.publishAt} onChange={(event) => setForm({ ...form, publishAt: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }} /></label><label>開始時刻<input type="time" value={form.publishTime} onChange={(event) => setForm({ ...form, publishTime: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }} /></label><label>掲載終了日<input type="date" value={form.finishAt} onChange={(event) => setForm({ ...form, finishAt: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }} /></label><label>終了時刻<input type="time" value={form.finishTime} onChange={(event) => setForm({ ...form, finishTime: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }} /></label></div>
           <fieldset style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 12 }}><legend>関連ファイル</legend>{state.files.map((file) => <label key={file.id} style={{ display: "flex", gap: 6, marginBottom: 5 }}><input type="checkbox" checked={form.relatedFiles.includes(file.id)} onChange={() => toggleFiles(file.id)} />{file.name}</label>)}</fieldset>
+          <fieldset style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 12 }}><legend>ファイル添付</legend><AttachmentInput value={form.attachments} onChange={(attachments) => setForm({ ...form, attachments })} /></fieldset>
           <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}><label><input type="checkbox" checked={form.important} onChange={(event) => setForm({ ...form, important: event.target.checked })} /> 重要</label><label><input type="checkbox" checked={form.allowComments} onChange={(event) => setForm({ ...form, allowComments: event.target.checked })} /> コメントを許可</label><label><input type="checkbox" checked={form.allowReactions} onChange={(event) => setForm({ ...form, allowReactions: event.target.checked })} /> リアクションを許可</label></div>
           {form.allowReactions && <label>リアクション文言<select value={form.reactionLabel} onChange={(event) => setForm({ ...form, reactionLabel: event.target.value })} style={{ display: "block", width: "100%", marginTop: 5 }}><option>確認しました</option><option>了解です</option><option>よろしくお願いします</option><option>いいね！</option></select></label>}
           <label>アンケート（任意）<input value={form.surveyQuestion} onChange={(event) => setForm({ ...form, surveyQuestion: event.target.value })} placeholder="質問" style={{ display: "block", width: "100%", marginTop: 5 }} /></label>
@@ -175,6 +179,7 @@ export default function BulletinView() {
         <div><div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 6 }}><span className="muted-text">{detail.category} / {detail.scope}</span>{detail.important && <strong style={{ color: "#b24a3a" }}>重要</strong>}</div><h2 style={{ margin: "0 0 6px", fontSize: 21 }}>{detail.title}</h2><div className="muted-text">{detail.author} / {detail.date} / 掲載 {detail.publishAt}{detail.finishAt ? ` ～ ${detail.finishAt}` : ""}</div></div>
         <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, padding: "16px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>{detail.body}</div>
         {(detail.relatedFiles ?? []).length > 0 && <div><strong style={{ fontSize: 12 }}>関連ファイル</strong>{(detail.relatedFiles ?? []).map((id) => <div key={id} className="muted-text">{state.files.find((file) => file.id === id)?.name ?? id}</div>)}</div>}
+        <AttachmentList items={detail.attachments} />
         {detail.survey && <div style={{ padding: 12, background: "var(--soft)", borderRadius: 8 }}><strong>{detail.survey.question}</strong><div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 8 }}>{detail.survey.options.map((option) => <button key={option} className="ghost-button" onClick={() => vote(option)}>{option} {Object.values(detail.survey?.votes ?? {}).filter((value) => value === option).length}</button>)}</div></div>}
         {detail.allowReactions && (
           <ConfirmationStatus

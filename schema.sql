@@ -50,6 +50,9 @@ CREATE TABLE IF NOT EXISTS schedules (
 );
 -- 既存環境向け（工事スペース連動）
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS workspace_id TEXT;
+-- 書き込み系のファイル添付（dataURLをJSONBで保持）
+ALTER TABLE schedules ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]';
+ALTER TABLE bulletins ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]';
 
 -- 掲示板
 CREATE TABLE IF NOT EXISTS bulletins (
