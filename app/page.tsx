@@ -28,7 +28,7 @@ import CanvasView from "@/components/views/Canvas";
 import SearchView from "@/components/views/Search";
 import LicensesView from "@/components/views/Licenses";
 import DailyReportView from "@/components/views/DailyReport";
-import ImpactMapView from "@/components/views/ImpactMap";
+import PipelineView from "@/components/views/Pipeline";
 import SafetyDocsView from "@/components/views/SafetyDocs";
 import EmployeesView from "@/components/views/Employees";
 import ProcessView from "@/components/views/Process";
@@ -57,7 +57,7 @@ const VIEW_META: Record<ViewId, { icon: string; title: string; lead: string }> =
   search: { icon: "検", title: "横断検索", lead: "メール・掲示板・申請・予定・ファイルなどをまとめて検索します。" },
   licenses: { icon: "証", title: "資格・許可管理", lead: "建設業許可・社員資格の取得状況と有効期限を管理します。" },
   dailyreport: { icon: "日", title: "工事日報", lead: "工事打合簿・品質安全日誌を記録・提出・承認します。" },
-  impactmap: { icon: "進", title: "進捗管理", lead: "ゴール→アクター→インパクト→デリバラブルの達成度を、地図とボードで見える化します。" },
+  pipeline: { icon: "進", title: "進捗管理", lead: "顧客→案件→受注→工事現場の流れを、案件カンバンで管理します。受注でドラッグすると現場を生成できます。" },
   safetydocs: { icon: "盾", title: "安全書類", lead: "下請業者編成表・施工体制台帳などの提出様式を作成・出力します。" },
   employees: { icon: "員", title: "社員管理", lead: "社内メンバーの氏名・部署・役職・連絡先・在籍状況を管理します。" },
   process: { icon: "程", title: "工程管理", lead: "工事現場ごとの工程・作業をガントチャートで計画し、進捗を管理します。" },
@@ -103,8 +103,8 @@ function ViewContent({ view }: { view: ViewId }) {
       return <LicensesView />;
     case "dailyreport":
       return <DailyReportView />;
-    case "impactmap":
-      return <ImpactMapView />;
+    case "pipeline":
+      return <PipelineView />;
     case "safetydocs":
       return <SafetyDocsView />;
     case "employees":
