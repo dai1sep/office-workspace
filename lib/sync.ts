@@ -24,6 +24,8 @@ import {
   upsertResourceInspection, deleteResourceInspection,
   upsertProcessTask, deleteProcessTask,
   upsertProgressMap, deleteProgressMap,
+  upsertCustomer, deleteCustomer,
+  upsertDeal, deleteDeal,
 } from "./db";
 
 function ids(arr: { id: string }[]) {
@@ -185,4 +187,22 @@ export function syncToSupabase(prev: AppState, next: AppState) {
     if (!old || JSON.stringify(old) !== JSON.stringify(m)) upsertProgressMap(m).catch(console.error);
   });
   prevPmIds.forEach((id) => { if (!nextPmIds.has(id)) deleteProgressMap(id).catch(console.error); });
+
+  // --- Customer ---
+  const prevCuIds = ids(prev.customers ?? []);
+  const nextCuIds = ids(next.customers ?? []);
+  (next.customers ?? []).forEach((c) => {
+    const old = (prev.customers ?? []).find((x) => x.id === c.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(c)) upsertCustomer(c).catch(console.error);
+  });
+  prevCuIds.forEach((id) => { if (!nextCuIds.has(id)) deleteCustomer(id).catch(console.error); });
+
+  // --- Deal ---
+  const prevDlIds = ids(prev.deals ?? []);
+  const nextDlIds = ids(next.deals ?? []);
+  (next.deals ?? []).forEach((d) => {
+    const old = (prev.deals ?? []).find((x) => x.id === d.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(d)) upsertDeal(d).catch(console.error);
+  });
+  prevDlIds.forEach((id) => { if (!nextDlIds.has(id)) deleteDeal(id).catch(console.error); });
 }

@@ -18,10 +18,10 @@ export type ViewId =
   | "search"
   | "licenses"
   | "dailyreport"
-  | "impactmap"
   | "safetydocs"
   | "employees"
-  | "process";
+  | "process"
+  | "pipeline";
 
 export interface User {
   id: string;
@@ -556,6 +556,36 @@ export interface ResourceInspection {
   note?: string;
 }
 
+// ── 案件パイプライン（顧客→案件→受注昇格→工事現場→工程 の背骨をカンバンで管理） ──
+export type DealStage = "引合" | "見積作成" | "見積提出" | "受注" | "施工中" | "完成";
+export type SectorKind = "民間" | "官公庁";
+
+export interface Customer {
+  id: string;
+  name: string;
+  kind: SectorKind;
+  contact?: string; // 担当者名
+  phone?: string;
+  email?: string;
+  notes?: string;
+}
+
+export interface Deal {
+  id: string;
+  customerId: string;
+  title: string;        // 案件名
+  stage: DealStage;
+  lost?: boolean;       // 失注（別レーン）
+  ownerId?: string;     // 社内担当
+  amount?: number;      // 見積・契約金額（円）
+  sector: SectorKind;   // 当面は民間のみ、官公庁は将来接続
+  workspaceId?: string; // 受注で生成/紐付けた工事現場（WorkSpace.id）
+  estimateRef?: string; // 将来の積算AI/入札結果DB連携用ID（今は任意）
+  dueDate?: string;     // 提出/完成などの期日
+  createdAt: string;
+  notes?: string;
+}
+
 // ── 進捗管理（インパクトマップ：ゴール→アクター→インパクト→デリバラブルの達成度） ──
 export type ProgressNodeType = "goal" | "actor" | "impact" | "deliverable";
 export type ProgressStatus = "未着手" | "進行中" | "確認中" | "完了" | "停滞";
@@ -633,6 +663,8 @@ export interface AppState {
   resourceInspections: ResourceInspection[];
   processTasks: ProcessTask[];
   progressMaps: ProgressMap[];
+  customers: Customer[];
+  deals: Deal[];
   primeProfile: PrimeCompanyProfile;
   uiPrefs: UiPrefs;
   bulletinSubscriptions?: string[];

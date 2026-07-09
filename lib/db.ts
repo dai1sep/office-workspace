@@ -11,7 +11,7 @@ import type {
   Timecard, AuditLog, AddressEntry, AppState,
   Subcontractor, SubcontractorOrgChart, ConstructionSystemLedger,
   FieldResource, ResourceAllocation, ResourceInspection,
-  ProcessTask, ProgressMap,
+  ProcessTask, ProgressMap, Customer, Deal,
 } from "./types";
 
 // ────────────────────────────────────────
@@ -230,6 +230,31 @@ function processTaskRow(t: ProcessTask): Record<string, unknown> {
   };
 }
 
+function toCustomer(r: Record<string, unknown>): Customer {
+  return {
+    id: r.id as string, name: r.name as string, kind: (r.kind as Customer["kind"]) ?? "民間",
+    contact: r.contact as string | undefined, phone: r.phone as string | undefined,
+    email: r.email as string | undefined, notes: r.notes as string | undefined,
+  };
+}
+function toDeal(r: Record<string, unknown>): Deal {
+  return {
+    id: r.id as string, customerId: r.customer_id as string, title: r.title as string,
+    stage: r.stage as Deal["stage"], lost: (r.lost as boolean) ?? false, ownerId: r.owner_id as string | undefined,
+    amount: r.amount as number | undefined, sector: (r.sector as Deal["sector"]) ?? "民間",
+    workspaceId: r.workspace_id as string | undefined, estimateRef: r.estimate_ref as string | undefined,
+    dueDate: r.due_date as string | undefined, createdAt: r.created_at as string, notes: r.notes as string | undefined,
+  };
+}
+function dealRow(d: Deal): Record<string, unknown> {
+  return {
+    id: d.id, customer_id: d.customerId, title: d.title, stage: d.stage, lost: d.lost ?? false,
+    owner_id: d.ownerId ?? null, amount: d.amount ?? null, sector: d.sector,
+    workspace_id: d.workspaceId ?? null, estimate_ref: d.estimateRef ?? null,
+    due_date: d.dueDate ?? null, created_at: d.createdAt, notes: d.notes ?? null,
+  };
+}
+
 function toProgressMap(r: Record<string, unknown>): ProgressMap {
   return {
     id: r.id as string,
@@ -267,6 +292,8 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     { data: resourceInspections },
     { data: processTasks },
     { data: progressMaps },
+    { data: customers },
+    { data: deals },
   ] = await Promise.all([
     db.from("users").select("*").order("name"),
     db.from("schedules").select("*").order("date"),
@@ -289,6 +316,8 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     db.from("resource_inspections").select("*").order("date", { ascending: false }),
     db.from("process_tasks").select("*").order("start"),
     db.from("progress_maps").select("*").order("title"),
+    db.from("customers").select("*").order("name"),
+    db.from("deals").select("*").order("created_at", { ascending: false }),
   ]);
 
   return {
@@ -341,6 +370,8 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     resourceInspections: (resourceInspections ?? []).map((r) => toResourceInspection(r as Record<string, unknown>)),
     processTasks: (processTasks ?? []).map((r) => toProcessTask(r as Record<string, unknown>)),
     progressMaps: (progressMaps ?? []).map((r) => toProgressMap(r as Record<string, unknown>)),
+    customers: (customers ?? []).map((r) => toCustomer(r as Record<string, unknown>)),
+    deals: (deals ?? []).map((r) => toDeal(r as Record<string, unknown>)),
   };
 }
 
@@ -599,6 +630,24 @@ export async function deleteProgressMap(id: string) {
   await db.from("progress_maps").delete().eq("id", id);
 }
 
+// --- Customer / Deal（案件パイプライン） ---
+export async function upsertCustomer(c: Customer) {
+  const db = assertSupabase();
+  await db.from("customers").upsert({ id: c.id, name: c.name, kind: c.kind, contact: c.contact ?? null, phone: c.phone ?? null, email: c.email ?? null, notes: c.notes ?? null });
+}
+export async function deleteCustomer(id: string) {
+  const db = assertSupabase();
+  await db.from("customers").delete().eq("id", id);
+}
+export async function upsertDeal(d: Deal) {
+  const db = assertSupabase();
+  await db.from("deals").upsert(dealRow(d));
+}
+export async function deleteDeal(id: string) {
+  const db = assertSupabase();
+  await db.from("deals").delete().eq("id", id);
+}
+
 // --- AuditLog ---
 export async function insertAuditLog(log: AuditLog) {
   const db = assertSupabase();
@@ -670,5 +719,7 @@ export async function seedIfEmpty(state: AppState) {
     }))),
     db.from("process_tasks").insert(state.processTasks.map(processTaskRow)),
     db.from("progress_maps").insert(state.progressMaps.map((m) => ({ id: m.id, title: m.title, nodes: m.nodes }))),
+    db.from("customers").insert(state.customers.map((c) => ({ id: c.id, name: c.name, kind: c.kind, contact: c.contact ?? null, phone: c.phone ?? null, email: c.email ?? null, notes: c.notes ?? null }))),
+    db.from("deals").insert(state.deals.map(dealRow)),
   ]);
 }

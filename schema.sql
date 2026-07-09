@@ -418,8 +418,39 @@ CREATE TABLE IF NOT EXISTS progress_maps (
 );
 ALTER TABLE progress_maps          ENABLE ROW LEVEL SECURITY;
 
+-- 案件パイプライン（顧客・案件）
+CREATE TABLE IF NOT EXISTS customers (
+  id      TEXT PRIMARY KEY,
+  name    TEXT NOT NULL,
+  kind    TEXT NOT NULL DEFAULT '民間',
+  contact TEXT,
+  phone   TEXT,
+  email   TEXT,
+  notes   TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE TABLE IF NOT EXISTS deals (
+  id           TEXT PRIMARY KEY,
+  customer_id  TEXT NOT NULL,
+  title        TEXT NOT NULL,
+  stage        TEXT NOT NULL DEFAULT '引合',
+  lost         BOOLEAN NOT NULL DEFAULT false,
+  owner_id     TEXT,
+  amount       BIGINT,
+  sector       TEXT NOT NULL DEFAULT '民間',
+  workspace_id TEXT,
+  estimate_ref TEXT,
+  due_date     TEXT,
+  created_at   TEXT NOT NULL DEFAULT '',
+  notes        TEXT
+);
+ALTER TABLE customers              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE deals                  ENABLE ROW LEVEL SECURITY;
+
 CREATE POLICY "allow_all_dev" ON field_resources      FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON resource_allocations FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON resource_inspections FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON process_tasks        FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON progress_maps        FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON customers            FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON deals                FOR ALL USING (true) WITH CHECK (true);
