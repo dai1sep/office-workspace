@@ -269,9 +269,9 @@ const seedState: AppState = {
     { id: "c4", name: "大阪市 建設局", kind: "官公庁", contact: "契約課" },
   ],
   deals: [
-    { id: "dl1", customerId: "c1", title: "田辺邸新築工事", stage: "施工中", ownerId: "u2", amount: 24000000, sector: "民間", workspaceId: "ws1", createdAt: "2026-05-20" },
-    { id: "dl2", customerId: "c2", title: "山田ビル改修工事", stage: "受注", ownerId: "u5", amount: 18500000, sector: "民間", workspaceId: "ws2", createdAt: "2026-06-01" },
-    { id: "dl3", customerId: "c3", title: "神戸倉庫 外構工事", stage: "見積提出", ownerId: "u1", amount: 7200000, sector: "民間", createdAt: "2026-06-25", dueDate: "2026-07-15" },
+    { id: "dl1", customerId: "c1", title: "田辺邸新築工事", stage: "施工中", ownerId: "u2", amount: 24000000, sector: "民間", workspaceId: "ws1", createdAt: "2026-05-20", execDate: "2026-06-01", termStart: "2026-06-01", termEnd: "2026-09-30" },
+    { id: "dl2", customerId: "c2", title: "山田ビル改修工事", stage: "受注", ownerId: "u5", amount: 18500000, sector: "民間", workspaceId: "ws2", createdAt: "2026-06-01", execDate: "2026-06-19" },
+    { id: "dl3", customerId: "c3", title: "神戸倉庫 外構工事", stage: "見積提出", ownerId: "u1", amount: 7200000, sector: "民間", createdAt: "2026-06-25" },
     { id: "dl4", customerId: "c2", title: "山田不動産 別棟増築", stage: "見積作成", ownerId: "u3", amount: 9800000, sector: "民間", createdAt: "2026-07-01" },
     { id: "dl5", customerId: "c1", title: "田辺邸 外構追加", stage: "引合", ownerId: "u2", sector: "民間", createdAt: "2026-07-05" },
     { id: "dl6", customerId: "c3", title: "神戸 テナント内装", stage: "完成", ownerId: "u4", amount: 5400000, sector: "民間", createdAt: "2026-04-10" },

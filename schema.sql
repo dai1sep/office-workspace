@@ -440,7 +440,9 @@ CREATE TABLE IF NOT EXISTS deals (
   sector       TEXT NOT NULL DEFAULT '民間',
   workspace_id TEXT,
   estimate_ref TEXT,
-  due_date     TEXT,
+  exec_date    TEXT,
+  term_start   TEXT,
+  term_end     TEXT,
   created_at   TEXT NOT NULL DEFAULT '',
   notes        TEXT
 );

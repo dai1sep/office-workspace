@@ -243,7 +243,8 @@ function toDeal(r: Record<string, unknown>): Deal {
     stage: r.stage as Deal["stage"], lost: (r.lost as boolean) ?? false, ownerId: r.owner_id as string | undefined,
     amount: r.amount as number | undefined, sector: (r.sector as Deal["sector"]) ?? "民間",
     workspaceId: r.workspace_id as string | undefined, estimateRef: r.estimate_ref as string | undefined,
-    dueDate: r.due_date as string | undefined, createdAt: r.created_at as string, notes: r.notes as string | undefined,
+    execDate: r.exec_date as string | undefined, termStart: r.term_start as string | undefined, termEnd: r.term_end as string | undefined,
+    createdAt: r.created_at as string, notes: r.notes as string | undefined,
   };
 }
 function dealRow(d: Deal): Record<string, unknown> {
@@ -251,7 +252,7 @@ function dealRow(d: Deal): Record<string, unknown> {
     id: d.id, customer_id: d.customerId, title: d.title, stage: d.stage, lost: d.lost ?? false,
     owner_id: d.ownerId ?? null, amount: d.amount ?? null, sector: d.sector,
     workspace_id: d.workspaceId ?? null, estimate_ref: d.estimateRef ?? null,
-    due_date: d.dueDate ?? null, created_at: d.createdAt, notes: d.notes ?? null,
+    exec_date: d.execDate ?? null, term_start: d.termStart ?? null, term_end: d.termEnd ?? null, created_at: d.createdAt, notes: d.notes ?? null,
   };
 }
 
