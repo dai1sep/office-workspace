@@ -379,7 +379,8 @@ type SiteForm = {
 };
 
 function SiteScheduleTab() {
-  const { state, updateState } = useApp();
+  const { state, updateState, currentUser } = useApp();
+  const me = currentUser ?? state.currentUser;
   const workspaces = state.workspaces ?? [];
   const [wsId, setWsId] = useState<string>(workspaces[0]?.id ?? "");
   const [form, setForm] = useState<SiteForm | null>(null);
@@ -397,7 +398,7 @@ function SiteScheduleTab() {
     if (!ws) return;
     setForm({
       id: null, title: "", date: TODAY, endDate: TODAY, start: "09:00", end: "17:00",
-      type: "work", location: ws.location ?? "", detail: "", members: [...ws.memberIds],
+      type: "work", location: ws.location ?? "", detail: "", members: Array.from(new Set([...ws.memberIds, me])),
     });
   }
   function openEdit(s: Schedule) {
@@ -424,7 +425,8 @@ function SiteScheduleTab() {
         start: form.start,
         end: form.end,
         location: form.location.trim(),
-        members: form.members,
+        // 参加者が空だとスケジュール画面（人ベース）でどこにも出ないため、最低限 登録者本人を含める
+        members: form.members.length ? form.members : [me],
         type: form.type,
         detail: form.detail.trim(),
         workspaceId: wsId,
