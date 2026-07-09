@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/Modal";
 import ConfirmationStatus from "@/components/ConfirmationStatus";
 import { AttachmentInput, AttachmentList } from "@/components/Attachments";
 import { useApp } from "@/lib/context";
+import { useIsMobile } from "@/lib/useIsMobile";
 import type { Bulletin, Attachment } from "@/lib/types";
 import { uid, userName } from "@/lib/utils";
 
@@ -52,14 +53,17 @@ export default function BulletinView() {
   const [comment, setComment] = useState("");
   const [replyTo, setReplyTo] = useState<string | undefined>();
 
+  const isMobile = useIsMobile();
   const categories = useMemo(() => ["すべて", ...Array.from(new Set(state.bulletins.map((item) => item.category).filter(Boolean)))], [state.bulletins]);
   const subscriptions = state.bulletinSubscriptions ?? [];
-  const detail = state.bulletins.find((item) => item.id === detailId) ?? null;
   const list = state.bulletins
     .filter((item) => mode === "drafts" ? item.draft && item.author === myName : mode === "mine" ? !item.draft && item.author === myName : !item.draft)
     .filter((item) => category === "すべて" || item.category === category)
     .filter((item) => !query || `${item.title} ${item.body} ${item.author} ${item.category}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => Number(b.pinned) - Number(a.pinned) || (b.updatedAt ?? b.date).localeCompare(a.updatedAt ?? a.date));
+  // 一覧に無い選択（カテゴリ変更等）は最新更新の記事へ自動フォールバック。下書きは詳細表示しない。
+  const activeId = detailId && list.some((i) => i.id === detailId) ? detailId : (list[0]?.id ?? null);
+  const detail = mode === "drafts" ? null : (state.bulletins.find((item) => item.id === activeId) ?? null);
 
   function toggleFiles(id: string) {
     setForm((prev) => ({ ...prev, relatedFiles: prev.relatedFiles.includes(id) ? prev.relatedFiles.filter((value) => value !== id) : [...prev.relatedFiles, id] }));
@@ -137,27 +141,94 @@ export default function BulletinView() {
     updateState((prev) => ({ ...prev, bulletins: prev.bulletins.map((item) => item.id === detail.id && item.survey ? { ...item, survey: { ...item.survey, votes: { ...item.survey.votes, [me]: option } } } : item) }));
   }
 
+  const listItems = (
+    <>
+      {list.length === 0 && <div className="muted-text" style={{ padding: 20, textAlign: "center" }}>該当する掲示はありません。</div>}
+      <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }} initial="hidden" animate="show">
+        {list.map((item) => {
+          const selected = !item.draft && detail?.id === item.id;
+          return (
+            <motion.button variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { duration: 0.16 } } }} whileHover={{ backgroundColor: "var(--soft)" }} key={item.id}
+              onClick={() => item.draft ? (setForm(formFrom(item)), setFormOpen(true)) : openDetail(item.id)}
+              style={{ width: "100%", border: 0, borderBottom: "1px solid var(--line)", background: selected ? "var(--soft)" : "transparent", color: "var(--text)", padding: "12px 10px", textAlign: "left", display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 10, borderLeft: `3px solid ${selected ? "var(--green)" : "transparent"}` }}>
+              <div style={{ minWidth: 0 }}>{item.pinned && <span style={{ marginRight: 6 }}>固定</span>}{!item.read && !item.draft && <span style={{ display: "inline-block", width: 7, height: 7, borderRadius: "50%", background: "#e53e3e", marginRight: 6, verticalAlign: "middle" }} />}<strong style={{ fontSize: 13.5 }}>{item.title}</strong><div className="muted-text" style={{ marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{item.category} / {item.author} / 更新 {item.updatedAt?.slice(0, 10) ?? item.date}</div></div>
+              <div style={{ textAlign: "right", flexShrink: 0 }}><span style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "var(--soft)" }}>{stateLabel(item)}</span><div className="muted-text" style={{ marginTop: 5 }}>💬{item.comments} ⁠· ↩{item.reactions.length}</div></div>
+            </motion.button>
+          );
+        })}
+      </motion.div>
+    </>
+  );
+
+  const detailContent = detail ? (
+    <AnimatePresence mode="wait">
+      <motion.div key={detail.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.18 }} style={{ display: "grid", gap: 14, padding: 18 }}>
+        <div><div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 6 }}><span className="muted-text">{detail.category} / {detail.scope}</span>{detail.important && <strong style={{ color: "#b24a3a" }}>重要</strong>}</div><h2 style={{ margin: "0 0 6px", fontSize: 21 }}>{detail.title}</h2><div className="muted-text">{detail.author} / {detail.date} / 掲載 {detail.publishAt}{detail.finishAt ? ` ～ ${detail.finishAt}` : ""}</div></div>
+        <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, padding: "16px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>{detail.body}</div>
+        {(detail.relatedFiles ?? []).length > 0 && <div><strong style={{ fontSize: 12 }}>関連ファイル</strong>{(detail.relatedFiles ?? []).map((id) => <div key={id} className="muted-text">{state.files.find((file) => file.id === id)?.name ?? id}</div>)}</div>}
+        <AttachmentList items={detail.attachments} />
+        {detail.survey && <div style={{ padding: 12, background: "var(--soft)", borderRadius: 8 }}><strong>{detail.survey.question}</strong><div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 8 }}>{detail.survey.options.map((option) => <button key={option} className="ghost-button" onClick={() => vote(option)}>{option} {Object.values(detail.survey?.votes ?? {}).filter((value) => value === option).length}</button>)}</div></div>}
+        {detail.allowReactions && (
+          <ConfirmationStatus
+            label={detail.reactionLabel}
+            confirmed={detail.reactions.map((id) => userName(state, id))}
+            pending={state.users.filter((u) => !detail.reactions.includes(u.id)).map((u) => u.name)}
+          />
+        )}
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>{detail.allowReactions && <button className="ghost-button" onClick={react}>{detail.reactionLabel} {detail.reactions.length}</button>}<button className="ghost-button" onClick={toggleThreadSubscription}>{(detail.subscribers ?? []).includes(me) ? "更新通知を解除" : "更新通知を受け取る"}</button><button className="ghost-button" onClick={reuse}>再利用</button><button className="ghost-button" onClick={exportThread}>ファイル出力</button>{detail.author === myName && <><button className="ghost-button" onClick={togglePinned}>{detail.pinned ? "固定を解除" : "先頭に固定"}</button><button className="ghost-button" onClick={() => edit(detail)}>編集</button><button className="ghost-button" onClick={remove} style={{ color: "#a33" }}>削除</button></>}</div>
+        <div><div className="panel-title">コメント {detail.commentsList.length}</div>{detail.commentsList.map((item) => <div key={item.id} style={{ padding: "10px 0", borderBottom: "1px solid var(--line)" }}><div style={{ display: "flex", justifyContent: "space-between" }}><strong>{item.author}</strong><span className="muted-text">{item.date.slice(0, 16).replace("T", " ")}</span></div>{item.parentId && <div className="muted-text">返信先: {detail.commentsList.find((parent) => parent.id === item.parentId)?.author ?? "コメント"}</div>}<div style={{ whiteSpace: "pre-wrap", marginTop: 5 }}>{item.text}</div><button onClick={() => setReplyTo(item.id)} style={{ border: 0, background: "transparent", color: "var(--blue)", padding: "5px 0" }}>返信する</button></div>)}{detail.allowComments && <div style={{ marginTop: 12 }}>{replyTo && <div className="muted-text">返信として投稿 <button onClick={() => setReplyTo(undefined)} style={{ border: 0, background: "transparent", color: "var(--blue)" }}>解除</button></div>}<textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={3} placeholder="コメントを入力" style={{ width: "100%", marginTop: 5 }} /><button className="ghost-button" onClick={postComment} style={{ marginTop: 7 }}>コメントを書き込む</button></div>}</div>
+      </motion.div>
+    </AnimatePresence>
+  ) : (
+    <div className="muted-text" style={{ display: "grid", placeItems: "center", height: "100%", textAlign: "center", padding: 24 }}>
+      {mode === "drafts" ? "下書きはクリックで編集画面が開きます" : "左の一覧から掲示を選ぶとここに表示されます"}
+    </div>
+  );
+
+  const categoryAside = (
+    <aside className="panel bulletin-categories" style={{ overflowY: "auto" }}>
+      <div className="panel-title">カテゴリ</div>
+      <div style={{ display: "grid", gap: 5 }}>{categories.map((value) => <div key={value} style={{ display: "grid", gridTemplateColumns: value === "すべて" ? "1fr" : "1fr auto", gap: 4 }}><button className="ghost-button" onClick={() => setCategory(value)} style={{ justifyContent: "space-between", fontSize: 12.5, padding: "5px 9px", background: category === value ? "var(--soft)" : "var(--panel)" }}><span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{value}</span><span className="muted-text">{value === "すべて" ? state.bulletins.length : state.bulletins.filter((item) => item.category === value).length}</span></button>{value !== "すべて" && <button className="ghost-button" onClick={() => toggleSubscription(value)} title="カテゴリ通知" style={{ padding: "5px 8px", fontSize: 11 }}>{subscriptions.includes(value) ? "🔔" : "🔕"}</button>}</div>)}</div>
+    </aside>
+  );
+
   return (
-    <div className="bulletin-view" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+    <div className="bulletin-view" style={{ display: "flex", flexDirection: "column", gap: 12, height: "calc(100vh - 116px)" }}>
       <section className="panel bulletin-toolbar" style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
         <button className="ghost-button" onClick={() => { setEditingId(null); setForm(EMPTY_FORM); setFormOpen(true); }} style={{ background: "var(--green)", color: "white", borderColor: "var(--green)" }}>掲示を書き込む</button>
         {[(["latest", "最新一覧"] as const), (["mine", "作成一覧"] as const), (["drafts", "下書き"] as const)].map(([value, label]) => <button key={value} className="ghost-button" onClick={() => setMode(value)} style={{ background: mode === value ? "var(--soft)" : "var(--panel)" }}>{label}</button>)}
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="掲示を検索" style={{ marginLeft: "auto", minWidth: 190 }} />
       </section>
 
-      <motion.div className="bulletin-layout" key={`${mode}-${category}`} initial={{ opacity: 0, x: 18 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: .2 }} style={{ display: "grid", gridTemplateColumns: "minmax(180px, 230px) minmax(0, 1fr)", gap: 12 }}>
-        <aside className="panel bulletin-categories">
-          <div className="panel-title">カテゴリ</div>
-          <div style={{ display: "grid", gap: 6 }}>{categories.map((value) => <div key={value} style={{ display: "grid", gridTemplateColumns: value === "すべて" ? "1fr" : "1fr auto", gap: 5 }}><button className="ghost-button" onClick={() => setCategory(value)} style={{ justifyContent: "space-between", background: category === value ? "var(--soft)" : "var(--panel)" }}><span>{value}</span><span className="muted-text">{value === "すべて" ? state.bulletins.length : state.bulletins.filter((item) => item.category === value).length}</span></button>{value !== "すべて" && <button className="ghost-button" onClick={() => toggleSubscription(value)} title="カテゴリ通知">{subscriptions.includes(value) ? "通知中" : "通知"}</button>}</div>)}</div>
-        </aside>
-        <section className="panel">
-          <div className="panel-title">掲示一覧 <span className="muted-text">{list.length}件</span></div>
-          {list.length === 0 && <div className="muted-text" style={{ padding: 20, textAlign: "center" }}>該当する掲示はありません。</div>}
-          <motion.div variants={{ hidden: {}, show: { transition: { staggerChildren: 0.04 } } }} initial="hidden" animate="show">
-          {list.map((item) => <motion.button variants={{ hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0, transition: { duration: 0.16 } } }} whileHover={{ backgroundColor: "var(--soft)" }} key={item.id} onClick={() => item.draft ? (setForm(formFrom(item)), setFormOpen(true)) : openDetail(item.id)} style={{ width: "100%", border: 0, borderBottom: "1px solid var(--line)", background: "transparent", color: "var(--text)", padding: "13px 4px", textAlign: "left", display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 12 }}><div>{item.pinned && <span style={{ marginRight: 6 }}>固定</span>}<strong>{item.title}</strong><div className="muted-text" style={{ marginTop: 4 }}>{item.category} / {item.scope} / {item.author} / 更新 {item.updatedAt?.slice(0, 10) ?? item.date}</div></div><div style={{ textAlign: "right" }}><span style={{ fontSize: 11, padding: "3px 7px", borderRadius: 5, background: "var(--soft)" }}>{stateLabel(item)}</span><div className="muted-text" style={{ marginTop: 5 }}>コメント {item.comments} / 反応 {item.reactions.length}</div></div></motion.button>)}
-          </motion.div>
-        </section>
-      </motion.div>
+      {isMobile ? (
+        detailId && detail ? (
+          <div className="panel" style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: 0 }}>
+            <button className="ghost-button" onClick={() => setDetailId(null)} style={{ margin: 12 }}>← 一覧へ</button>
+            {detailContent}
+          </div>
+        ) : (
+          <div style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 10 }}>
+            <select value={category} onChange={(e) => setCategory(e.target.value)} style={{ width: "100%" }}>
+              {categories.map((value) => <option key={value} value={value}>{value}（{value === "すべて" ? state.bulletins.length : state.bulletins.filter((item) => item.category === value).length}）</option>)}
+            </select>
+            <section className="panel" style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
+              <div className="panel-title">掲示一覧 <span className="muted-text">{list.length}件</span></div>
+              {listItems}
+            </section>
+          </div>
+        )
+      ) : (
+        <div className="bulletin-layout" style={{ flex: 1, minHeight: 0, display: "grid", gridTemplateColumns: "160px 330px minmax(0, 1fr)", gap: 12 }}>
+          {categoryAside}
+          <section className="panel" style={{ overflowY: "auto" }}>
+            <div className="panel-title">掲示一覧 <span className="muted-text">{list.length}件</span></div>
+            {listItems}
+          </section>
+          <section className="panel" style={{ overflowY: "auto", padding: 0 }}>
+            {detailContent}
+          </section>
+        </div>
+      )}
 
       <Modal open={formOpen} onClose={() => setFormOpen(false)} title="掲示の書き込み" width={760}>
         <div style={{ display: "grid", gap: 12 }}>
@@ -174,23 +245,6 @@ export default function BulletinView() {
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}><button className="ghost-button" onClick={() => save(true)}>下書き保存</button><button className="ghost-button" onClick={() => setFormOpen(false)}>キャンセル</button><button className="ghost-button" onClick={() => save(false)} style={{ background: "var(--green)", color: "white" }}>書き込む</button></div>
         </div>
       </Modal>
-
-      <Modal open={Boolean(detail)} onClose={() => setDetailId(null)} title="掲示の詳細" width={780}>{detail && <div style={{ display: "grid", gap: 14 }}>
-        <div><div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginBottom: 6 }}><span className="muted-text">{detail.category} / {detail.scope}</span>{detail.important && <strong style={{ color: "#b24a3a" }}>重要</strong>}</div><h2 style={{ margin: "0 0 6px", fontSize: 21 }}>{detail.title}</h2><div className="muted-text">{detail.author} / {detail.date} / 掲載 {detail.publishAt}{detail.finishAt ? ` ～ ${detail.finishAt}` : ""}</div></div>
-        <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.8, padding: "16px 0", borderTop: "1px solid var(--line)", borderBottom: "1px solid var(--line)" }}>{detail.body}</div>
-        {(detail.relatedFiles ?? []).length > 0 && <div><strong style={{ fontSize: 12 }}>関連ファイル</strong>{(detail.relatedFiles ?? []).map((id) => <div key={id} className="muted-text">{state.files.find((file) => file.id === id)?.name ?? id}</div>)}</div>}
-        <AttachmentList items={detail.attachments} />
-        {detail.survey && <div style={{ padding: 12, background: "var(--soft)", borderRadius: 8 }}><strong>{detail.survey.question}</strong><div style={{ display: "flex", gap: 7, flexWrap: "wrap", marginTop: 8 }}>{detail.survey.options.map((option) => <button key={option} className="ghost-button" onClick={() => vote(option)}>{option} {Object.values(detail.survey?.votes ?? {}).filter((value) => value === option).length}</button>)}</div></div>}
-        {detail.allowReactions && (
-          <ConfirmationStatus
-            label={detail.reactionLabel}
-            confirmed={detail.reactions.map((id) => userName(state, id))}
-            pending={state.users.filter((u) => !detail.reactions.includes(u.id)).map((u) => u.name)}
-          />
-        )}
-        <div style={{ display: "flex", gap: 7, flexWrap: "wrap" }}>{detail.allowReactions && <button className="ghost-button" onClick={react}>{detail.reactionLabel} {detail.reactions.length}</button>}<button className="ghost-button" onClick={toggleThreadSubscription}>{(detail.subscribers ?? []).includes(me) ? "更新通知を解除" : "更新通知を受け取る"}</button><button className="ghost-button" onClick={reuse}>再利用</button><button className="ghost-button" onClick={exportThread}>ファイル出力</button><button className="ghost-button" onClick={() => navigator.clipboard?.writeText(window.location.href)}>固定リンクをコピー</button>{detail.author === myName && <><button className="ghost-button" onClick={togglePinned}>{detail.pinned ? "固定を解除" : "先頭に固定"}</button><button className="ghost-button" onClick={() => edit(detail)}>編集</button><button className="ghost-button" onClick={remove} style={{ color: "#a33" }}>削除</button></>}</div>
-        <div><div className="panel-title">コメント {detail.commentsList.length}</div>{detail.commentsList.map((item) => <div key={item.id} style={{ padding: "10px 0", borderBottom: "1px solid var(--line)" }}><div style={{ display: "flex", justifyContent: "space-between" }}><strong>{item.author}</strong><span className="muted-text">{item.date.slice(0, 16).replace("T", " ")}</span></div>{item.parentId && <div className="muted-text">返信先: {detail.commentsList.find((parent) => parent.id === item.parentId)?.author ?? "コメント"}</div>}<div style={{ whiteSpace: "pre-wrap", marginTop: 5 }}>{item.text}</div><button onClick={() => setReplyTo(item.id)} style={{ border: 0, background: "transparent", color: "var(--blue)", padding: "5px 0" }}>返信する</button></div>)}{detail.allowComments && <div style={{ marginTop: 12 }}>{replyTo && <div className="muted-text">返信として投稿 <button onClick={() => setReplyTo(undefined)} style={{ border: 0, background: "transparent", color: "var(--blue)" }}>解除</button></div>}<textarea value={comment} onChange={(event) => setComment(event.target.value)} rows={3} placeholder="コメントを入力" style={{ width: "100%", marginTop: 5 }} /><button className="ghost-button" onClick={postComment} style={{ marginTop: 7 }}>コメントを書き込む</button></div>}</div>
-      </div>}</Modal>
     </div>
   );
 }
