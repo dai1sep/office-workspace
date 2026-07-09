@@ -118,7 +118,8 @@ type Form = {
 };
 
 export default function PipelineView() {
-  const { state, updateState, can } = useApp();
+  const { state, updateState, can, currentUser } = useApp();
+  const me = currentUser ?? state.currentUser;
   const deals = state.deals ?? [];
   const customers = state.customers ?? [];
   const [form, setForm] = useState<Form | null>(null);
@@ -234,10 +235,13 @@ export default function PipelineView() {
       const reflect = ws && base.termStart && base.termEnd && !base.lost;
       let schedules = prev.schedules.filter((s) => s.id !== termSchedId);
       if (reflect) {
+        // スケジュールは「参加者に自分が含まれる予定」だけ表示されるため、
+        // 現場の配属メンバー＋案件担当＋設定した本人を必ず参加者に含める（空だと一覧に出ない）
+        const members = Array.from(new Set([...ws!.memberIds, ...(base.ownerId ? [base.ownerId] : []), me]));
         const termSched: Schedule = {
           id: termSchedId, title: `${base.title}（工期）`, date: base.termStart!, endDate: base.termEnd!,
           start: "08:00", end: "17:00", allDay: true, location: ws!.location ?? "",
-          members: ws!.memberIds.length ? ws!.memberIds : base.ownerId ? [base.ownerId] : [],
+          members,
           type: "work", detail: "案件パイプラインの工期から自動反映", workspaceId: ws!.id, scheduleMode: "multiDay",
         };
         schedules = [...schedules, termSched];
