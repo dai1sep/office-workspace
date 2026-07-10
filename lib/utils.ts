@@ -1,7 +1,29 @@
-import { AppState, WorkflowRequest, WorkflowRouteStep } from "./types";
+import { AppState, WorkflowRequest, WorkflowRouteStep, Schedule, WorkSpace } from "./types";
 
 export function userName(state: AppState, id: string): string {
   return state.users.find((u) => u.id === id)?.name ?? "未設定";
+}
+
+// スケジュールが指定日に発生するか（単日/複数日/期間/繰り返しに対応）。Schedule.tsx の occursOn と共通の判定
+export function scheduleOccursOn(s: Schedule, iso: string): boolean {
+  if (s.scheduleMode === "repeat" && s.repeatCycle) {
+    if (iso < s.date || (s.repeatUntil && iso > s.repeatUntil)) return false;
+    const days = Math.round((new Date(iso).getTime() - new Date(s.date).getTime()) / 86400000);
+    if (s.repeatCycle === "daily") return true;
+    if (s.repeatCycle === "weekly") return days % 7 === 0;
+    if (s.repeatCycle === "monthly") return new Date(s.date).getDate() === new Date(iso).getDate();
+    if (s.repeatCycle === "yearly") { const a = new Date(s.date), b = new Date(iso); return a.getMonth() === b.getMonth() && a.getDate() === b.getDate(); }
+  }
+  if ((s.scheduleMode === "multiDay" || s.scheduleMode === "period") && s.endDate) {
+    return s.date <= iso && iso <= s.endDate;
+  }
+  return s.date === iso;
+}
+
+// その人にとって予定が「自分の予定」か：参加者に入っている or 紐づく現場に配属されている
+export function userSeesSchedule(s: Schedule, userId: string, workspaces: WorkSpace[]): boolean {
+  if (s.members.includes(userId)) return true;
+  return Boolean(s.workspaceId && workspaces.some((w) => w.id === s.workspaceId && w.memberIds.includes(userId)));
 }
 
 const WORKFLOW_CLOSED = ["承認済", "却下", "差し戻し"];
