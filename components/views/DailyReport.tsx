@@ -94,13 +94,11 @@ function PrintView({ r, wsName, onClose }: { r: DailyReport; wsName: string; onC
 /* ══════════════════════════════════════════
    詳細モーダル（画面内表示）
 ══════════════════════════════════════════ */
-function DetailPane({ r, wsName, nameOptions, onClose, onEdit, onApprove, onSetApproverName, onDelete }: {
+function DetailPane({ r, wsName, onClose, onEdit, onApprove, onDelete }: {
   r: DailyReport; wsName: string;
-  nameOptions: string[];
   onClose: () => void;
   onEdit: () => void;
   onApprove: (role: string) => void;
-  onSetApproverName: (role: string, name: string) => void;
   onDelete: () => void;
 }) {
   const [printing, setPrinting] = useState(false);
@@ -258,31 +256,32 @@ function DetailPane({ r, wsName, nameOptions, onClose, onEdit, onApprove, onSetA
         </div>
       )}
 
-      {/* 承認欄（役職名＋氏名を縦書き、氏名は自由入力・候補あり） */}
+      {/* 作業員 電子サイン欄（内容確認でチェック＝サイン確定した氏名を縦書きで表示） */}
+      {(r.signedWorkers ?? []).length > 0 && (
+        <div className="panel" style={{ marginBottom: 12 }}>
+          <SectionTitle>作業員サイン欄</SectionTitle>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {(r.signedWorkers ?? []).map((name, i) => (
+              <div key={i} style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "10px 8px", writingMode: "vertical-rl", height: 96, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, fontWeight: 700, letterSpacing: "0.14em" }}>
+                {name}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 承認欄（役職の承認） */}
       <div className="panel" style={{ marginBottom: 12 }}>
         <SectionTitle>承認欄</SectionTitle>
-        <datalist id="dr-approver-names">{nameOptions.map(n => <option key={n} value={n} />)}</datalist>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10 }}>
           {APPROVAL_ROLES.map(role => {
             const approved = r.approvals?.[role];
-            const name = r.approverNames?.[role] ?? "";
             return (
-              <div key={role} style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "10px 8px 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
-                {/* 縦書きの役職名＋氏名（印鑑欄風） */}
-                <div style={{ writingMode: "vertical-rl", height: 118, display: "flex", alignItems: "center", gap: 6, fontVariantNumeric: "normal" }}>
-                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", color: "var(--text)" }}>{role}</span>
-                  <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.1em", color: name ? "var(--text)" : "var(--line)" }}>{name || "氏名"}</span>
-                </div>
-                <input
-                  list="dr-approver-names"
-                  value={name}
-                  onChange={e => onSetApproverName(role, e.target.value)}
-                  placeholder="氏名を記入"
-                  style={{ width: "100%", fontSize: 12, padding: "4px 6px", textAlign: "center" }}
-                />
+              <div key={role} style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
+                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>{role}</div>
                 {approved
-                  ? <div style={{ fontSize: 18, color: "var(--blue)", lineHeight: 1 }}>✓ 承認</div>
-                  : <button className="ghost-button" onClick={() => onApprove(role)} style={{ fontSize: 11, padding: "3px 10px" }}>承認する</button>}
+                  ? <div style={{ fontSize: 20, color: "var(--blue)" }}>✓</div>
+                  : <button className="ghost-button" onClick={() => onApprove(role)} style={{ fontSize: 11, padding: "4px 10px" }}>承認する</button>}
               </div>
             );
           })}
@@ -306,6 +305,16 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
   const [form, setForm] = useState<Omit<DailyReport, "id" | "createdBy" | "createdAt">>(() => ({
     ...emptyForm(), ...initial,
   }));
+  // 電子サイン（2段階フロー）
+  const [step, setStep] = useState<"edit" | "confirm">("edit");
+  const [extraText, setExtraText] = useState("");
+  const [signed, setSigned] = useState<string[]>(() => (initial as DailyReport).signedWorkers ?? []);
+  const signCandidates = Array.from(new Set([
+    ...form.attendees.map(a => a.name.trim()).filter(Boolean),      // 就労人員(社員)と連動
+    ...extraText.split(/[\n,、]/).map(s => s.trim()).filter(Boolean), // 自由追加
+    ...signed,                                                       // 既存のサイン確定者
+  ]));
+  const toggleSign = (name: string) => setSigned(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name]);
   function setF(p: Partial<typeof form>) { setForm(prev => ({ ...prev, ...p })); }
   function addRow<T>(f: keyof typeof form, empty: T) { setForm(prev => ({ ...prev, [f]: [...(prev[f] as T[]), empty] })); }
   function updRow<T>(f: keyof typeof form, i: number, p: Partial<T>) {
@@ -316,9 +325,10 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
   }
   function save(status: DailyReport["status"]) {
     const now = new Date().toISOString().slice(0, 10);
+    const signedWorkers = signed.filter(n => signCandidates.includes(n));
     const r: DailyReport = editing
-      ? { ...(initial as DailyReport), ...form, status }
-      : { ...form, id: uid("dr"), createdBy: currentUser ?? "", createdAt: now, status };
+      ? { ...(initial as DailyReport), ...form, signedWorkers, status }
+      : { ...form, id: uid("dr"), createdBy: currentUser ?? "", createdAt: now, signedWorkers, status };
     onSave(r, status);
   }
 
@@ -327,6 +337,45 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
   const delBtn = (f: keyof typeof form, i: number) => (
     <button onClick={() => delRow(f, i)} style={{ padding: "4px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "transparent", color: "var(--muted)", cursor: "pointer", fontSize: 12 }}>✕</button>
   );
+
+  if (step === "confirm") {
+    const signedCount = signed.filter(n => signCandidates.includes(n)).length;
+    return (
+      <div style={{ maxWidth: 720, margin: "0 auto" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
+          <button className="ghost-button" onClick={() => setStep("edit")} style={{ fontSize: 12 }}>← 内容を修正</button>
+          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>内容確認・作業員サイン</h2>
+        </div>
+        <div className="panel" style={{ marginBottom: 14 }}>
+          <SectionTitle>プレビュー</SectionTitle>
+          <div style={{ fontSize: 13, display: "grid", gap: 6 }}>
+            <div><span className="muted-text">現場</span>　{workspaces.find(w => w.id === form.workspaceId)?.name ?? "未選択"}</div>
+            <div><span className="muted-text">実施日</span>　{form.implementDate || "-"}　／　天候 {form.weather || "-"}</div>
+            <div><span className="muted-text">作業内容</span>　<span style={{ whiteSpace: "pre-wrap" }}>{form.actualWork || form.plannedWork || "-"}</span></div>
+            <div><span className="muted-text">就労人員</span>　{form.attendees.filter(a => a.present && a.name).length} 名</div>
+          </div>
+        </div>
+        <div className="panel" style={{ marginBottom: 14 }}>
+          <SectionTitle>作業員サイン（チェック＝本人確認・サイン確定）</SectionTitle>
+          {signCandidates.length === 0
+            ? <div className="muted-text" style={{ fontSize: 12 }}>「社員出面表」に氏名を入力するか、前の画面の「作業員サイン対象（自由追加）」で名前を追加してください。</div>
+            : <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(150px,1fr))", gap: 8 }}>
+                {signCandidates.map(name => (
+                  <label key={name} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, padding: "7px 10px", border: `1px solid ${signed.includes(name) ? "var(--green)" : "var(--line)"}`, borderRadius: 8, background: signed.includes(name) ? "rgba(63,107,91,0.10)" : "var(--panel)", cursor: "pointer" }}>
+                    <input type="checkbox" checked={signed.includes(name)} onChange={() => toggleSign(name)} />{name}
+                  </label>
+                ))}
+              </div>}
+          <div className="muted-text" style={{ fontSize: 12, marginTop: 10 }}>サイン確定：{signedCount} / {signCandidates.length} 名（チェックした名前だけが日報・PDF・Excelのサイン欄に載ります）</div>
+        </div>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button className="ghost-button" onClick={() => setStep("edit")}>← 戻る</button>
+          <button className="ghost-button" onClick={() => save("draft")}>下書き保存</button>
+          <motion.button className="ghost-button" whileTap={{ scale: 0.97 }} onClick={() => save("submitted")} style={{ background: "var(--blue)", color: "#fff", borderColor: "var(--blue)" }}>この内容で提出</motion.button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ maxWidth: 860, margin: "0 auto" }}>
@@ -539,11 +588,21 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
         <textarea value={form.notes} onChange={e => setF({ notes: e.target.value })} rows={3} placeholder="特記事項・連絡事項" style={taStyle} />
       </div>
 
+      {/* 作業員サイン対象（就労人員に加えて自由追加） */}
+      <div className="panel" style={{ marginBottom: 14 }}>
+        <SectionTitle>作業員サイン対象</SectionTitle>
+        <div className="muted-text" style={{ fontSize: 12, marginBottom: 8 }}>
+          「社員出面表」の氏名は自動でサイン対象になります。ここには協力業者など、追加の作業員名を自由に入力してください（改行・カンマ区切り、10名規模まで）。次の「内容確認」画面でチェックした人がサイン確定になります。
+        </div>
+        <textarea value={extraText} onChange={e => setExtraText(e.target.value)} rows={3} placeholder="山田太郎、佐藤次郎 …（改行またはカンマ区切り）" style={taStyle} />
+        <div className="muted-text" style={{ fontSize: 12, marginTop: 8 }}>現在のサイン対象：{signCandidates.length} 名</div>
+      </div>
+
       <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
         <button className="ghost-button" onClick={onCancel}>キャンセル</button>
         <button className="ghost-button" onClick={() => save("draft")}>下書き保存</button>
-        <motion.button className="ghost-button" whileTap={{ scale: 0.97 }} onClick={() => save("submitted")}
-          style={{ background: "var(--blue)", color: "#fff", borderColor: "var(--blue)" }}>提出</motion.button>
+        <motion.button className="ghost-button" whileTap={{ scale: 0.97 }} onClick={() => setStep("confirm")}
+          style={{ background: "var(--green)", color: "#fff", borderColor: "var(--green)" }}>次へ（内容確認・サイン）→</motion.button>
       </div>
     </div>
   );
@@ -599,15 +658,6 @@ export default function DailyReportView() {
     }));
   }
 
-  function setApproverName(id: string, role: string, name: string) {
-    updateState(prev => ({
-      ...prev,
-      dailyReports: (prev.dailyReports ?? []).map(r =>
-        r.id === id ? { ...r, approverNames: { ...(r.approverNames ?? {}), [role]: name } } : r
-      ),
-    }));
-  }
-
   function deleteReport(id: string) {
     updateState(prev => ({
       ...prev,
@@ -636,14 +686,9 @@ export default function DailyReportView() {
       <DetailPane
         r={detail}
         wsName={wsName(detail.workspaceId)}
-        nameOptions={Array.from(new Set([
-          ...(state.dailyReports ?? []).flatMap(rep => Object.values(rep.approverNames ?? {})),
-          ...state.users.filter(u => u.active !== false).map(u => u.name),
-        ].filter(Boolean)))}
         onClose={() => setMode("list")}
         onEdit={() => { setEditingReport(detail); setMode("form"); }}
         onApprove={role => approve(detail.id, role)}
-        onSetApproverName={(role, name) => setApproverName(detail.id, role, name)}
         onDelete={() => deleteReport(detail.id)}
       />
     );
