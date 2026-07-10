@@ -16,7 +16,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { useApp } from "@/lib/context";
 import { TODAY } from "@/lib/store";
 import { Schedule } from "@/lib/types";
-import { isWorkflowPendingFor, userName } from "@/lib/utils";
+import { isWorkflowPendingFor, userName, scheduleOccursOn, userSeesSchedule } from "@/lib/utils";
 
 // ── Slack-style ping dot ─────────────────────────────────────────────────────
 function PingDot({ color = "#e53e3e" }: { color?: string }) {
@@ -295,7 +295,7 @@ export default function Dashboard() {
   const unreadBulletins  = state.bulletins.filter((b) => !b.read && !b.draft);
   const pendingWorkflows = state.workflows.filter((w) => isWorkflowPendingFor(w, me));
   const todayTodos       = state.todos.filter((t) => t.due <= TODAY && t.status !== "完了");
-  const todaySchedules   = state.schedules.filter((s) => s.date === TODAY).sort((a, b) => a.start.localeCompare(b.start));
+  const todaySchedules   = state.schedules.filter((s) => scheduleOccursOn(s, TODAY)).sort((a, b) => a.start.localeCompare(b.start));
   const employeeSchedules = todaySchedules.filter((s) => s.members.length > 0).map((s) => ({ ...s, memberNames: s.members.map((id) => userName(state, id)).join("、") }));
   const visibleSchedules  = employeeSchedules.slice(0, 5);
   const hiddenSchedules   = employeeSchedules.slice(5);
@@ -381,7 +381,7 @@ export default function Dashboard() {
             <SectionHead title="週間スケジュール" accent="#10b981" action={<span style={{ fontSize: 11, color: "var(--muted)" }}>{TODAY} から5日間</span>} />
             <div style={{ display: "grid", gridTemplateColumns: "repeat(5, minmax(0, 1fr))", gap: 8 }}>
               {weekDays.map((day) => {
-                const items    = state.schedules.filter((s) => s.date === day && s.members.includes(me));
+                const items    = state.schedules.filter((s) => scheduleOccursOn(s, day) && userSeesSchedule(s, me, state.workspaces));
                 const dueTodos = state.todos.filter((t) => t.due === day && t.assignee === me && t.status !== "完了");
                 const isToday  = day === TODAY;
                 return (
