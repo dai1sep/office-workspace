@@ -435,6 +435,7 @@ CREATE TABLE IF NOT EXISTS deals (
   title        TEXT NOT NULL,
   stage        TEXT NOT NULL DEFAULT '引合',
   lost         BOOLEAN NOT NULL DEFAULT false,
+  lost_reason  TEXT,
   owner_id     TEXT,
   amount       BIGINT,
   sector       TEXT NOT NULL DEFAULT '民間',

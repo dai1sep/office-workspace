@@ -115,6 +115,7 @@ type Form = {
   estimateRef: string;
   notes: string;
   lost: boolean;
+  lostReason: string;
 };
 
 export default function PipelineView() {
@@ -124,6 +125,7 @@ export default function PipelineView() {
   const customers = state.customers ?? [];
   const [form, setForm] = useState<Form | null>(null);
   const [lostOpen, setLostOpen] = useState(false);
+  const [lostDetailId, setLostDetailId] = useState<string | null>(null);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const custName = useMemo(() => new Map((state.customers ?? []).map((c) => [c.id, c.name])), [state.customers]);
@@ -182,14 +184,14 @@ export default function PipelineView() {
   function openNew() {
     setForm({
       id: null, customerId: customers[0]?.id ?? "", newCustomer: customers.length === 0, newCustomerName: "", newCustomerKind: "民間",
-      title: "", stage: "引合", ownerId: "", amount: "", sector: "民間", execDate: "", termStart: "", termEnd: "", estimateRef: "", notes: "", lost: false,
+      title: "", stage: "引合", ownerId: "", amount: "", sector: "民間", execDate: "", termStart: "", termEnd: "", estimateRef: "", notes: "", lost: false, lostReason: "",
     });
   }
   function openEdit(d: Deal) {
     setForm({
       id: d.id, customerId: d.customerId, newCustomer: false, newCustomerName: "", newCustomerKind: "民間",
       title: d.title, stage: d.stage, ownerId: d.ownerId ?? "", amount: d.amount != null ? String(d.amount) : "",
-      sector: d.sector, execDate: d.execDate ?? "", termStart: d.termStart ?? "", termEnd: d.termEnd ?? "", estimateRef: d.estimateRef ?? "", notes: d.notes ?? "", lost: d.lost ?? false,
+      sector: d.sector, execDate: d.execDate ?? "", termStart: d.termStart ?? "", termEnd: d.termEnd ?? "", estimateRef: d.estimateRef ?? "", notes: d.notes ?? "", lost: d.lost ?? false, lostReason: d.lostReason ?? "",
     });
   }
   function patch(p: Partial<Form>) { setForm((f) => (f ? { ...f, ...p } : f)); }
@@ -212,6 +214,7 @@ export default function PipelineView() {
       title: form.title.trim(),
       stage: form.stage,
       lost: form.lost,
+      lostReason: form.lost ? (form.lostReason.trim() || undefined) : undefined,
       ownerId: form.ownerId || undefined,
       amount: Number.isFinite(amount) ? amount : undefined,
       sector: form.sector,
@@ -269,6 +272,7 @@ export default function PipelineView() {
 
   const editingDeal = form?.id ? deals.find((d) => d.id === form.id) : undefined;
   const activeDeal = activeId ? deals.find((d) => d.id === activeId) : null;
+  const lostDetail = lostDetailId ? deals.find((d) => d.id === lostDetailId) ?? null : null;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 116px)", gap: 12 }}>
@@ -367,7 +371,17 @@ export default function PipelineView() {
               </div>
             </div>
             <label className="field"><span>メモ</span><textarea value={form.notes} onChange={(e) => patch({ notes: e.target.value })} rows={2} style={{ display: "block", width: "100%", marginTop: 4 }} /></label>
-            {form.id && <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13 }}><input type="checkbox" checked={form.lost} onChange={(e) => patch({ lost: e.target.checked })} style={{ width: "auto" }} />失注として扱う</label>}
+            {form.id && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: form.lost ? "10px 12px" : 0, borderRadius: 8, background: form.lost ? "rgba(180,84,84,0.08)" : "transparent", border: form.lost ? `1px solid ${LOST_COLOR}44` : "none" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 13 }}><input type="checkbox" checked={form.lost} onChange={(e) => patch({ lost: e.target.checked })} style={{ width: "auto" }} />失注として扱う</label>
+                {form.lost && (
+                  <label className="field">
+                    <span>失注理由（備考）<span style={{ color: "var(--muted)", fontWeight: 400 }}>　任意・未記入でOK（スキップ可）</span></span>
+                    <textarea value={form.lostReason} onChange={(e) => patch({ lostReason: e.target.value })} rows={2} placeholder="例：価格が折り合わず／競合他社に決定 など" style={{ display: "block", width: "100%", marginTop: 4 }} />
+                  </label>
+                )}
+              </div>
+            )}
 
             {/* 工事現場リンク */}
             {form.id && (editingDeal?.workspaceId
@@ -386,50 +400,59 @@ export default function PipelineView() {
         )}
       </Modal>
 
-      {/* 失注：右からスライドインする一覧（クリックで詳細） */}
-      <AnimatePresence>
-        {lostOpen && (
-          <>
-            <motion.div
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              onClick={() => setLostOpen(false)}
-              style={{ position: "fixed", inset: 0, zIndex: 8000, background: "rgba(0,0,0,0.35)" }}
-            />
-            <motion.div
-              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "tween", duration: 0.22 }}
-              style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 380, maxWidth: "92vw", zIndex: 8001, background: "var(--panel)", borderLeft: "1px solid var(--line)", boxShadow: "-8px 0 28px rgba(0,0,0,.18)", display: "flex", flexDirection: "column" }}
-            >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
-                <strong style={{ fontSize: 15 }}>🗑 失注 <span className="muted-text">{lost.length}件</span></strong>
-                <button className="ghost-button" onClick={() => setLostOpen(false)}>閉じる</button>
-              </div>
-              <div style={{ flex: 1, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+      {/* 失注：ウインドウ表示。項目クリックでウインドウ内をスライドして詳細 */}
+      <Modal open={lostOpen} onClose={() => { setLostOpen(false); setLostDetailId(null); }} title="🗑 失注" width={560}>
+        <div style={{ overflow: "hidden" }}>
+          <AnimatePresence mode="wait" initial={false}>
+            {lostDetail ? (
+              <motion.div key="detail" initial={{ x: 40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: 40, opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <button className="ghost-button" onClick={() => setLostDetailId(null)} style={{ alignSelf: "flex-start" }}>← 一覧へ戻る</button>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+                  <strong style={{ fontSize: 17 }}>{lostDetail.title}</strong>
+                  <span style={{ fontSize: 14, fontWeight: 700, fontVariantNumeric: "tabular-nums" }}>{yen(lostDetail.amount)}</span>
+                </div>
+                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 12px", fontSize: 13 }}>
+                  <span className="muted-text">顧客</span><span>{custName.get(lostDetail.customerId) ?? "顧客未設定"}</span>
+                  <span className="muted-text">担当</span><span>{lostDetail.ownerId ? userName(state, lostDetail.ownerId) : "未設定"}</span>
+                  <span className="muted-text">失注時ステージ</span><span>{lostDetail.stage}</span>
+                  <span className="muted-text">失注理由</span><span style={{ whiteSpace: "pre-wrap" }}>{lostDetail.lostReason || "（未記入）"}</span>
+                  {lostDetail.notes && (<><span className="muted-text">メモ</span><span style={{ whiteSpace: "pre-wrap" }}>{lostDetail.notes}</span></>)}
+                </div>
+                <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
+                  <button className="ghost-button" onClick={() => { updateState((prev) => ({ ...prev, deals: prev.deals.map((d) => d.id === lostDetail.id ? { ...d, lost: false, lostReason: undefined } : d) })); setLostDetailId(null); }}>失注を解除</button>
+                  <button className="primary-button" onClick={() => { openEdit(lostDetail); setLostOpen(false); setLostDetailId(null); }}>編集する</button>
+                </div>
+              </motion.div>
+            ) : (
+              <motion.div key="list" initial={{ x: -40, opacity: 0 }} animate={{ x: 0, opacity: 1 }} exit={{ x: -40, opacity: 0 }} transition={{ duration: 0.2 }} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div className="muted-text" style={{ fontSize: 12 }}>{lost.length}件・クリックで詳細</div>
                 {lost.length === 0 ? (
                   <div style={{ color: "var(--muted)", fontSize: 13, textAlign: "center", padding: "32px 0" }}>失注はありません。</div>
                 ) : (
                   lost.map((d) => (
                     <button
                       key={d.id}
-                      onClick={() => { openEdit(d); setLostOpen(false); }}
+                      onClick={() => setLostDetailId(d.id)}
                       style={{ textAlign: "left", background: "var(--panel)", border: "1px solid var(--line)", borderLeft: `4px solid ${LOST_COLOR}`, borderRadius: 9, padding: "10px 12px", cursor: "pointer", display: "flex", flexDirection: "column", gap: 4 }}
                     >
                       <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
                         <strong style={{ fontSize: 13 }}>{d.title}</strong>
                         <span style={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{yen(d.amount)}</span>
                       </div>
-                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                      <div style={{ fontSize: 11, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                         {custName.get(d.customerId) ?? "顧客未設定"}
                         {d.ownerId ? ` ・ 担当 ${userName(state, d.ownerId)}` : ""}
                         {` ・ ${d.stage}で失注`}
+                        {d.lostReason ? ` ・ ${d.lostReason}` : ""}
                       </div>
                     </button>
                   ))
                 )}
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </Modal>
     </div>
   );
 }

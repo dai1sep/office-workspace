@@ -576,7 +576,8 @@ export interface Deal {
   customerId: string;
   title: string;        // 案件名
   stage: DealStage;
-  lost?: boolean;       // 失注（別レーン）
+  lost?: boolean;       // 失注
+  lostReason?: string;  // 失注理由（備考、任意）
   ownerId?: string;     // 社内担当
   amount?: number;      // 見積・契約金額（円）
   sector: SectorKind;   // 当面は民間のみ、官公庁は将来接続

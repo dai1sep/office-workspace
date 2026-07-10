@@ -276,7 +276,7 @@ const seedState: AppState = {
     { id: "dl4", customerId: "c2", title: "山田不動産 別棟増築", stage: "見積作成", ownerId: "u3", amount: 9800000, sector: "民間", createdAt: "2026-07-01" },
     { id: "dl5", customerId: "c1", title: "田辺邸 外構追加", stage: "引合", ownerId: "u2", sector: "民間", createdAt: "2026-07-05" },
     { id: "dl6", customerId: "c3", title: "神戸 テナント内装", stage: "完成", ownerId: "u4", amount: 5400000, sector: "民間", createdAt: "2026-04-10" },
-    { id: "dl7", customerId: "c2", title: "旧山田倉庫 解体", stage: "見積提出", lost: true, ownerId: "u1", amount: 3200000, sector: "民間", createdAt: "2026-05-15" },
+    { id: "dl7", customerId: "c2", title: "旧山田倉庫 解体", stage: "見積提出", lost: true, lostReason: "競合他社の方が安価で失注", ownerId: "u1", amount: 3200000, sector: "民間", createdAt: "2026-05-15" },
   ],
   primeProfile: {
     companyName: "", address: "", phone: "", representative: "",
