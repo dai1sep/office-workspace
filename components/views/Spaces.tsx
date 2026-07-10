@@ -16,7 +16,7 @@ import {
 import { motion } from "framer-motion";
 import Modal from "@/components/Modal";
 import { useApp } from "@/lib/context";
-import { uid, userName } from "@/lib/utils";
+import { uid, userName, pruneUserFromWorkspaceSchedules } from "@/lib/utils";
 import { TODAY } from "@/lib/store";
 import type { WorkSpace, Schedule } from "@/lib/types";
 import { BoardTab, LedgerTab, ScheduleTab, InspectionTab } from "@/components/views/FieldResources";
@@ -222,9 +222,6 @@ function MemberBoard() {
 
     // 現場から外した人を、その現場に紐づく予定（現場予定・工期）の参加者からも外す
     // ＝ スケジュールに残り続ける不具合の解消（配属で出る/外すと消える を対称にする）
-    const pruneFromSpace = (schedules: typeof state.schedules, spaceId: string | null) =>
-      spaceId == null ? schedules : schedules.map((s) => (s.workspaceId === spaceId && s.members.includes(userId) ? { ...s, members: s.members.filter((id) => id !== userId) } : s));
-
     if (targetId === "pool") {
       if (!fromSpaceId) return;
       updateState((prev) => ({
@@ -232,7 +229,7 @@ function MemberBoard() {
         workspaces: prev.workspaces.map((w) =>
           w.id === fromSpaceId ? { ...w, memberIds: w.memberIds.filter((id) => id !== userId) } : w,
         ),
-        schedules: pruneFromSpace(prev.schedules, fromSpaceId),
+        schedules: pruneUserFromWorkspaceSchedules(prev.schedules, fromSpaceId, userId),
       }));
     } else if (targetId.startsWith("space::")) {
       const toId = targetId.slice(7);
@@ -244,7 +241,7 @@ function MemberBoard() {
           if (w.id === toId && !w.memberIds.includes(userId)) return { ...w, memberIds: [...w.memberIds, userId] };
           return w;
         }),
-        schedules: pruneFromSpace(prev.schedules, fromSpaceId),
+        schedules: pruneUserFromWorkspaceSchedules(prev.schedules, fromSpaceId, userId),
       }));
     }
   }
