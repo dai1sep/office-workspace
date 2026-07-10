@@ -10,7 +10,7 @@ import { useApp } from "@/lib/context";
 import { TODAY } from "@/lib/store";
 import type { AppState, Schedule, Attachment } from "@/lib/types";
 import { useIsMobile } from "@/lib/useIsMobile";
-import { uid, userName } from "@/lib/utils";
+import { uid, userName, scheduleOccursOn, userSeesSchedule } from "@/lib/utils";
 
 type ViewMode = "groupDay" | "groupWeek" | "site" | "personalDay" | "personalWeek" | "personalMonth" | "personalYear";
 type FormMode = "single" | "multiDay" | "period" | "repeat";
@@ -45,22 +45,6 @@ function startOfWeek(iso: string) {
 function fmt(iso: string) {
   const date = dateOf(iso);
   return `${date.getMonth() + 1}/${date.getDate()}（${"日月火水木金土"[date.getDay()]}）`;
-}
-function occursOn(schedule: Schedule, iso: string) {
-  if (schedule.scheduleMode === "repeat" && schedule.repeatCycle) {
-    if (iso < schedule.date || (schedule.repeatUntil && iso > schedule.repeatUntil)) return false;
-    const source = dateOf(schedule.date);
-    const target = dateOf(iso);
-    const days = Math.round((target.getTime() - source.getTime()) / 86400000);
-    if (schedule.repeatCycle === "daily") return true;
-    if (schedule.repeatCycle === "weekly") return days % 7 === 0;
-    if (schedule.repeatCycle === "monthly") return source.getDate() === target.getDate();
-    if (schedule.repeatCycle === "yearly") return source.getMonth() === target.getMonth() && source.getDate() === target.getDate();
-  }
-  if ((schedule.scheduleMode === "multiDay" || schedule.scheduleMode === "period") && schedule.endDate) {
-    return schedule.date <= iso && iso <= schedule.endDate;
-  }
-  return schedule.date === iso;
 }
 function scheduleTime(schedule: Schedule) {
   return schedule.allDay ? "終日" : `${schedule.start}–${schedule.end}`;
@@ -174,10 +158,8 @@ export default function ScheduleView() {
     return !query || text.includes(query.toLowerCase());
   });
   const schedulesFor = useCallback((userId: string, iso: string) => {
-    // その人が配属されている工事現場（工事スペース）を動的に判定
-    const myWs = new Set((state.workspaces ?? []).filter((w) => w.memberIds.includes(userId)).map((w) => w.id));
-    // 予定の参加者に入っている or 紐づく現場に配属されていれば、その人の予定として表示
-    const regular = matchingSchedules.filter((s) => (s.members.includes(userId) || (s.workspaceId && myWs.has(s.workspaceId))) && occursOn(s, iso));
+    // 参加者に入っている or 紐づく現場に配属されていれば、その人の予定として表示（lib/utilsで一元管理）
+    const regular = matchingSchedules.filter((s) => userSeesSchedule(s, userId, state.workspaces ?? []) && scheduleOccursOn(s, iso));
     const res = resVirtual.filter((r) => r.members.includes(userId) && r.date === iso);
     const todos = mode.startsWith("personal") ? todoVirtual.filter((t) => t.date === iso && t.members.includes(userId)) : [];
     const wfs = mode.startsWith("personal") ? wfVirtual.filter((w) => w.date === iso) : [];
@@ -190,7 +172,7 @@ export default function ScheduleView() {
       for (let startMinutes = 9 * 60; startMinutes + adjustDuration <= 18 * 60; startMinutes += 30) {
         const start = timeFromMinutes(startMinutes);
         const end = timeFromMinutes(startMinutes + adjustDuration);
-        const busy = state.schedules.some((schedule) => occursOn(schedule, date) && schedule.members.some((id) => adjustMembers.includes(id)) && schedule.start < end && schedule.end > start);
+        const busy = state.schedules.some((schedule) => scheduleOccursOn(schedule, date) && schedule.members.some((id) => adjustMembers.includes(id)) && schedule.start < end && schedule.end > start);
         if (!busy) slots.push({ date, start, end });
       }
     }
@@ -224,7 +206,7 @@ export default function ScheduleView() {
   }
   function conflicts() {
     return state.schedules.filter((schedule) => {
-      if (!occursOn(schedule, form.date)) return false;
+      if (!scheduleOccursOn(schedule, form.date)) return false;
       if (schedule.end <= form.start || schedule.start >= form.end) return false;
       return schedule.members.some((id) => form.members.includes(id)) || (schedule.facilities ?? []).some((id) => form.facilities.includes(id));
     });
@@ -364,7 +346,7 @@ export default function ScheduleView() {
                     <strong style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={ws.name}>{ws.name}</strong>
                   </div>
                   {displayDates.map((iso) => {
-                    const wsScheds = matchingSchedules.filter((s) => s.workspaceId === ws.id && occursOn(s, iso));
+                    const wsScheds = matchingSchedules.filter((s) => s.workspaceId === ws.id && scheduleOccursOn(s, iso));
                     const procs = (state.processTasks ?? []).filter((t) => t.workspaceId === ws.id && t.start <= iso && iso <= t.end);
                     const allocs = (state.resourceAllocations ?? []).filter((a) => a.workspaceId === ws.id && a.date === iso);
                     return (

@@ -26,6 +26,12 @@ export function userSeesSchedule(s: Schedule, userId: string, workspaces: WorkSp
   return Boolean(s.workspaceId && workspaces.some((w) => w.id === s.workspaceId && w.memberIds.includes(userId)));
 }
 
+// 現場(工事スペース)から外した人を、その現場に紐づく予定の参加者からも外す
+export function pruneUserFromWorkspaceSchedules(schedules: Schedule[], workspaceId: string | null, userId: string): Schedule[] {
+  if (workspaceId == null) return schedules;
+  return schedules.map((s) => (s.workspaceId === workspaceId && s.members.includes(userId) ? { ...s, members: s.members.filter((id) => id !== userId) } : s));
+}
+
 const WORKFLOW_CLOSED = ["承認済", "却下", "差し戻し"];
 
 // 経路が未設定の旧データは approvers/approved から経路を再構成する。
