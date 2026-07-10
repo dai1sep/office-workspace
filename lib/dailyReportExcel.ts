@@ -34,13 +34,17 @@ export function buildDailyReportCellMap(r: DailyReport, wsName: string): Record<
   if (id) { put("H4", id.y2); put("K4", id.m); put("N4", id.day); put("S4", id.wd); }
   map["Y4"] = `　晴　・　雨　・　曇り　(　${r.weather ?? ""}　)`;
 
-  // 業者・作業内容（行8-17）
-  (r.subcontractors ?? []).slice(0, 10).forEach((s, i) => {
-    const R = 8 + i; put("A" + R, s.company); put("H" + R, s.jobType); put("L" + R, s.workContent);
+  // 業者・作業内容・使用機械（行8-17）: 1行＝業者名｜職種｜作業内容｜使用機械(名称/台数/累計)
+  const subs = (r.subcontractors ?? []).slice(0, 10);
+  subs.forEach((s, i) => {
+    const R = 8 + i;
+    put("A" + R, s.company); put("H" + R, s.jobType); put("L" + R, s.workContent);
+    // 協力業者に入力した使用機械を同じ行に出力（名称=Z / 台数=AE / 累計=AG）
+    put("Z" + R, s.machineName); put("AE" + R, s.machineCount || ""); put("AG" + R, s.machineCumCount || "");
   });
-  // 使用機械（行8-17）
-  (r.equipment ?? []).slice(0, 10).forEach((e, i) => {
-    const R = 8 + i; put("Z" + R, e.name); put("AE" + R, e.count || "");
+  // 協力業者に紐づかない使用機械は、業者行の下に続けて記載（行8-17内）
+  (r.equipment ?? []).slice(0, Math.max(0, 10 - subs.length)).forEach((e, i) => {
+    const R = 8 + subs.length + i; put("Z" + R, e.name); put("AE" + R, e.count || "");
   });
 
   // 作業指示・確認是正
