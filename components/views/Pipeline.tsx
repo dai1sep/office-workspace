@@ -5,7 +5,7 @@ import {
   DndContext, DragEndEvent, DragOverlay, DragStartEvent,
   PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors,
 } from "@dnd-kit/core";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/Modal";
 import { useApp } from "@/lib/context";
 import { uid, userName } from "@/lib/utils";
@@ -123,6 +123,7 @@ export default function PipelineView() {
   const deals = state.deals ?? [];
   const customers = state.customers ?? [];
   const [form, setForm] = useState<Form | null>(null);
+  const [lostOpen, setLostOpen] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(null);
 
   const custName = useMemo(() => new Map((state.customers ?? []).map((c) => [c.id, c.name])), [state.customers]);
@@ -152,11 +153,6 @@ export default function PipelineView() {
     if (!deal) return;
     const target = over.id as string;
 
-    if (target === "lost") {
-      if (deal.lost) return;
-      updateState((prev) => ({ ...prev, deals: prev.deals.map((d) => (d.id === dealId ? { ...d, lost: true } : d)) }));
-      return;
-    }
     if (target.startsWith("stage::")) {
       const stage = target.slice(7) as DealStage;
       if (deal.stage === stage && !deal.lost) return;
@@ -287,7 +283,15 @@ export default function PipelineView() {
           <span className="muted-text">受注以降（受注〜完成）</span>
           <div style={{ fontSize: 16, fontWeight: 800, color: "var(--green)", fontVariantNumeric: "tabular-nums" }}>{yen(wonValue)} <span style={{ fontSize: 12, color: "var(--muted)", fontWeight: 600 }}>／ {active.filter((d) => d.stage === "受注" || d.stage === "施工中" || d.stage === "完成").length}件</span></div>
         </div>
-        {lost.length > 0 && <><div style={{ width: 1, height: 32, background: "var(--line)" }} /><div><span className="muted-text">失注</span><div style={{ fontSize: 15, fontWeight: 700, color: LOST_COLOR }}>{lost.length}件</div></div></>}
+        <div style={{ width: 1, height: 32, background: "var(--line)" }} />
+        <button
+          onClick={() => setLostOpen(true)}
+          title="失注一覧" aria-label="失注一覧を開く"
+          style={{ position: "relative", display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 13px", border: "1px solid var(--line)", borderRadius: 999, background: "var(--panel)", cursor: "pointer", fontSize: 13, fontWeight: 700, color: "var(--muted)" }}
+        >
+          <span style={{ fontSize: 15 }}>🗑</span>失注
+          {lost.length > 0 && <span style={{ background: LOST_COLOR, color: "#fff", fontSize: 11, fontWeight: 800, borderRadius: 999, padding: "1px 7px", minWidth: 18, textAlign: "center" }}>{lost.length}</span>}
+        </button>
         <button className="primary-button" style={{ marginLeft: "auto" }} onClick={openNew} disabled={!can("any")}>＋ 案件を追加</button>
       </div>
 
@@ -305,13 +309,6 @@ export default function PipelineView() {
               </Column>
             );
           })}
-          {/* 失注レーン */}
-          <Column id="lost" title="失注" color={LOST_COLOR} count={lost.length} sum={0}>
-            {lost.map((d) => (
-              <DraggableCard key={d.id} deal={d} customerName={custName.get(d.customerId) ?? "顧客未設定"} owner={d.ownerId ? userName(state, d.ownerId) : ""} ws={d.workspaceId ? wsById.get(d.workspaceId) : undefined} onClick={() => openEdit(d)} />
-            ))}
-            {lost.length === 0 && <div style={{ fontSize: 11, color: "var(--muted)", textAlign: "center", padding: "14px 0" }}>—</div>}
-          </Column>
         </div>
 
         <DragOverlay dropAnimation={{ duration: 160, easing: "ease" }}>
@@ -388,6 +385,51 @@ export default function PipelineView() {
           </div>
         )}
       </Modal>
+
+      {/* 失注：右からスライドインする一覧（クリックで詳細） */}
+      <AnimatePresence>
+        {lostOpen && (
+          <>
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              onClick={() => setLostOpen(false)}
+              style={{ position: "fixed", inset: 0, zIndex: 8000, background: "rgba(0,0,0,0.35)" }}
+            />
+            <motion.div
+              initial={{ x: "100%" }} animate={{ x: 0 }} exit={{ x: "100%" }} transition={{ type: "tween", duration: 0.22 }}
+              style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: 380, maxWidth: "92vw", zIndex: 8001, background: "var(--panel)", borderLeft: "1px solid var(--line)", boxShadow: "-8px 0 28px rgba(0,0,0,.18)", display: "flex", flexDirection: "column" }}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px", borderBottom: "1px solid var(--line)" }}>
+                <strong style={{ fontSize: 15 }}>🗑 失注 <span className="muted-text">{lost.length}件</span></strong>
+                <button className="ghost-button" onClick={() => setLostOpen(false)}>閉じる</button>
+              </div>
+              <div style={{ flex: 1, overflowY: "auto", padding: 12, display: "flex", flexDirection: "column", gap: 8 }}>
+                {lost.length === 0 ? (
+                  <div style={{ color: "var(--muted)", fontSize: 13, textAlign: "center", padding: "32px 0" }}>失注はありません。</div>
+                ) : (
+                  lost.map((d) => (
+                    <button
+                      key={d.id}
+                      onClick={() => { openEdit(d); setLostOpen(false); }}
+                      style={{ textAlign: "left", background: "var(--panel)", border: "1px solid var(--line)", borderLeft: `4px solid ${LOST_COLOR}`, borderRadius: 9, padding: "10px 12px", cursor: "pointer", display: "flex", flexDirection: "column", gap: 4 }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 6 }}>
+                        <strong style={{ fontSize: 13 }}>{d.title}</strong>
+                        <span style={{ fontSize: 12, fontWeight: 700, fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>{yen(d.amount)}</span>
+                      </div>
+                      <div style={{ fontSize: 11, color: "var(--muted)" }}>
+                        {custName.get(d.customerId) ?? "顧客未設定"}
+                        {d.ownerId ? ` ・ 担当 ${userName(state, d.ownerId)}` : ""}
+                        {` ・ ${d.stage}で失注`}
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
