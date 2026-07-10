@@ -506,7 +506,7 @@ export interface DailyReport {
   remainingDays: number;
   notes: string;
   approvals: Record<string, string>;
-  approverNames?: Record<string, string>; // 承認欄の記名（役職→氏名、自由入力）
+  signedWorkers?: string[]; // 作業員の電子サイン（内容確認でチェック＝サイン確定した氏名）
   createdBy: string;
   createdAt: string;
   status: "draft" | "submitted" | "approved";
