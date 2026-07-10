@@ -72,6 +72,14 @@ export function buildDailyReportCellMap(r: DailyReport, wsName: string): Record<
   // 記事
   put("X31", r.notes);
 
+  // 確認欄（承認者の記名）: テンプレートは U38:AH42 の1ボックス。記名を「役職 氏名」で並べる
+  const APPROVAL_ROLES = ["社長", "工事部部長", "工事部次長", "統括所長", "工事担当者"];
+  const signed = APPROVAL_ROLES
+    .map((role) => ({ role, name: r.approverNames?.[role]?.trim() }))
+    .filter((x) => x.name)
+    .map((x) => `${x.role}：${x.name}`);
+  if (signed.length) put("U38", signed.join("　"));
+
   return map;
 }
 
