@@ -240,7 +240,7 @@ function toCustomer(r: Record<string, unknown>): Customer {
 function toDeal(r: Record<string, unknown>): Deal {
   return {
     id: r.id as string, customerId: r.customer_id as string, title: r.title as string,
-    stage: r.stage as Deal["stage"], lost: (r.lost as boolean) ?? false, ownerId: r.owner_id as string | undefined,
+    stage: r.stage as Deal["stage"], lost: (r.lost as boolean) ?? false, lostReason: r.lost_reason as string | undefined, ownerId: r.owner_id as string | undefined,
     amount: r.amount as number | undefined, sector: (r.sector as Deal["sector"]) ?? "民間",
     workspaceId: r.workspace_id as string | undefined, estimateRef: r.estimate_ref as string | undefined,
     execDate: r.exec_date as string | undefined, termStart: r.term_start as string | undefined, termEnd: r.term_end as string | undefined,
@@ -249,7 +249,7 @@ function toDeal(r: Record<string, unknown>): Deal {
 }
 function dealRow(d: Deal): Record<string, unknown> {
   return {
-    id: d.id, customer_id: d.customerId, title: d.title, stage: d.stage, lost: d.lost ?? false,
+    id: d.id, customer_id: d.customerId, title: d.title, stage: d.stage, lost: d.lost ?? false, lost_reason: d.lostReason ?? null,
     owner_id: d.ownerId ?? null, amount: d.amount ?? null, sector: d.sector,
     workspace_id: d.workspaceId ?? null, estimate_ref: d.estimateRef ?? null,
     exec_date: d.execDate ?? null, term_start: d.termStart ?? null, term_end: d.termEnd ?? null, created_at: d.createdAt, notes: d.notes ?? null,
