@@ -567,19 +567,44 @@ function SiteScheduleTab() {
   );
 }
 
+/* ─────────────── 配属・配置タブ（👷ヒト＝社員配属／🚜モノ＝リソース配置の2レーン） ─────────────── */
+function LaneHeader({ icon, title, sub }: { icon: string; title: string; sub: string }) {
+  return (
+    <div style={{ display: "flex", alignItems: "baseline", gap: 8, margin: "2px 0 10px" }}>
+      <span style={{ fontSize: 16 }}>{icon}</span>
+      <strong style={{ fontSize: 14 }}>{title}</strong>
+      <span className="muted-text" style={{ fontSize: 12 }}>{sub}</span>
+    </div>
+  );
+}
+function AssignBoard() {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <section>
+        <LaneHeader icon="👷" title="ヒト（社員の配属）" sub="社員を工事カードにドラッグして現場へ配属" />
+        <MemberBoard />
+      </section>
+      <div style={{ height: 1, background: "var(--line)" }} />
+      <section>
+        <LaneHeader icon="🚜" title="モノ（重機・機材の配置）" sub="日付ごとにリソースを現場へドラッグして段取り" />
+        <BoardTab />
+      </section>
+    </div>
+  );
+}
+
 /* ─────────────── 統合ハブ（工事スペース＝親） ─────────────── */
-type HubTab = "members" | "siteSchedule" | "resources" | "ledger" | "schedule" | "inspection";
+type HubTab = "assign" | "siteSchedule" | "ledger" | "schedule" | "inspection";
 const HUB_TABS: { id: HubTab; label: string }[] = [
-  { id: "members", label: "メンバー配属" },
+  { id: "assign", label: "配属・配置" },
   { id: "siteSchedule", label: "現場予定" },
-  { id: "resources", label: "リソース配置" },
   { id: "ledger", label: "リソース台帳" },
   { id: "schedule", label: "稼働予定" },
   { id: "inspection", label: "点検簿" },
 ];
 
 export default function SpacesView() {
-  const [tab, setTab] = useState<HubTab>("members");
+  const [tab, setTab] = useState<HubTab>("assign");
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
       <div style={{ display: "flex", gap: 6, borderBottom: "1px solid var(--line)", flexWrap: "wrap" }}>
@@ -603,9 +628,8 @@ export default function SpacesView() {
           </button>
         ))}
       </div>
-      {tab === "members" && <MemberBoard />}
+      {tab === "assign" && <AssignBoard />}
       {tab === "siteSchedule" && <SiteScheduleTab />}
-      {tab === "resources" && <BoardTab />}
       {tab === "ledger" && <LedgerTab />}
       {tab === "schedule" && <ScheduleTab />}
       {tab === "inspection" && <InspectionTab />}
