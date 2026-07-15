@@ -54,14 +54,61 @@ function setCell(xml: string, ref: string, value: string): string {
   return xml.replace(sdRe, sd[1] + ni + sd[3]);
 }
 
+// セルの現在のスタイルindex(s)を取得
+function cellStyleIndex(xml: string, ref: string): number {
+  const m = xml.match(new RegExp(`<c r="${ref}"([^>]*)`));
+  const s = m?.[1]?.match(/\ss="(\d+)"/);
+  return s ? Number(s[1]) : 0;
+}
+// セルのスタイルindex(s)を差し替え（無ければ付与）
+function setCellStyle(xml: string, ref: string, styleIndex: number): string {
+  return xml.replace(new RegExp(`(<c r="${ref}")([^>]*?)(\\/?>)`), (_all, head, attrs, tail) =>
+    head + attrs.replace(/\ss="\d+"/, "") + ` s="${styleIndex}"` + tail);
+}
+// styles.xml の cellXfs から index番目の <xf> を取り出し、縦書き(textRotation=255)版を追加して新indexを返す。
+// 罫線・フォント等は元のxfをコピーするので体裁は保持される。
+function injectVerticalStyles(stylesXml: string, sourceIndexes: number[]): { xml: string; map: Map<number, number> } {
+  const map = new Map<number, number>();
+  const cxRe = /(<cellXfs count=")(\d+)(">)([\s\S]*?)(<\/cellXfs>)/;
+  const cx = stylesXml.match(cxRe);
+  if (!cx) return { xml: stylesXml, map };
+  const xfs = cx[4].match(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g) ?? [];
+  let count = Number(cx[2]);
+  let added = "";
+  for (const src of Array.from(new Set(sourceIndexes))) {
+    const base = xfs[src] ?? xfs[0] ?? '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>';
+    const attrs = (base.match(/^<xf\b([^>]*?)\/?>/)?.[1] ?? "").replace(/\sapplyAlignment="[^"]*"/, "");
+    const newXf = `<xf${attrs} applyAlignment="1"><alignment textRotation="255" horizontal="center" vertical="center" wrapText="1"/></xf>`;
+    map.set(src, count);
+    added += newXf;
+    count++;
+  }
+  const xml = stylesXml.replace(cxRe, (_a, p1, _oldCount, p3, inner, p5) => `${p1}${count}${p3}${inner}${added}${p5}`);
+  return { xml, map };
+}
+
 // テンプレ(ArrayBuffer)の最初のワークシートに cellMap を差し込み、xlsx Blob を返す。
-export async function patchXlsxCells(templateBuffer: ArrayBuffer, cellMap: Record<string, string>): Promise<Blob> {
+// verticalRefs のセルは styles.xml に縦書きスタイルを注入して縦書きにする。
+export async function patchXlsxCells(templateBuffer: ArrayBuffer, cellMap: Record<string, string>, verticalRefs: string[] = []): Promise<Blob> {
   const zip = await JSZip.loadAsync(templateBuffer);
   const sheetPath = Object.keys(zip.files).filter((n) => /^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort()[0];
   const file = sheetPath ? zip.file(sheetPath) : null;
   if (!file) throw new Error("worksheet XML が見つかりません");
   let xml = await file.async("string");
   for (const [ref, val] of Object.entries(cellMap)) xml = setCell(xml, ref, val);
+
+  // 縦書きセル：既存スタイルをコピーした縦書きスタイルを styles.xml に追加し、各セルへ適用
+  const stylesFile = zip.file("xl/styles.xml");
+  if (verticalRefs.length && stylesFile) {
+    const srcIdx = verticalRefs.map((ref) => cellStyleIndex(xml, ref));
+    const { xml: newStyles, map } = injectVerticalStyles(await stylesFile.async("string"), srcIdx);
+    zip.file("xl/styles.xml", newStyles);
+    verticalRefs.forEach((ref, i) => {
+      const ni = map.get(srcIdx[i]);
+      if (ni != null) xml = setCellStyle(xml, ref, ni);
+    });
+  }
+
   zip.file(sheetPath, xml);
   return zip.generateAsync({ type: "blob" });
 }
