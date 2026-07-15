@@ -94,11 +94,13 @@ function PrintView({ r, wsName, onClose }: { r: DailyReport; wsName: string; onC
 /* ══════════════════════════════════════════
    詳細モーダル（画面内表示）
 ══════════════════════════════════════════ */
-function DetailPane({ r, wsName, onClose, onEdit, onApprove, onDelete }: {
+function DetailPane({ r, wsName, nameOptions, onClose, onEdit, onApprove, onSetApproverName, onDelete }: {
   r: DailyReport; wsName: string;
+  nameOptions: string[];
   onClose: () => void;
   onEdit: () => void;
   onApprove: (role: string) => void;
+  onSetApproverName: (role: string, name: string) => void;
   onDelete: () => void;
 }) {
   const [printing, setPrinting] = useState(false);
@@ -270,18 +272,24 @@ function DetailPane({ r, wsName, onClose, onEdit, onApprove, onDelete }: {
         </div>
       )}
 
-      {/* 承認欄（役職の承認） */}
+      {/* 承認欄（役職名＋氏名を縦書き、氏名は自由入力・候補あり／承認✓は別管理） */}
       <div className="panel" style={{ marginBottom: 12 }}>
         <SectionTitle>承認欄</SectionTitle>
+        <datalist id="dr-approver-names">{nameOptions.map(n => <option key={n} value={n} />)}</datalist>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(5,1fr)", gap: 10 }}>
           {APPROVAL_ROLES.map(role => {
             const approved = r.approvals?.[role];
+            const name = r.approverNames?.[role] ?? "";
             return (
-              <div key={role} style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "10px 12px", textAlign: "center" }}>
-                <div style={{ fontSize: 11, color: "var(--muted)", marginBottom: 8 }}>{role}</div>
+              <div key={role} style={{ border: "1px solid var(--line)", borderRadius: 8, padding: "10px 8px 8px", display: "flex", flexDirection: "column", alignItems: "center", gap: 8 }}>
+                <div style={{ writingMode: "vertical-rl", height: 118, display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.14em", color: "var(--text)" }}>{role}</span>
+                  <span style={{ fontSize: 15, fontWeight: 700, letterSpacing: "0.1em", color: name ? "var(--text)" : "var(--line)" }}>{name || "氏名"}</span>
+                </div>
+                <input list="dr-approver-names" value={name} onChange={e => onSetApproverName(role, e.target.value)} placeholder="氏名を記入" style={{ width: "100%", fontSize: 12, padding: "4px 6px", textAlign: "center" }} />
                 {approved
-                  ? <div style={{ fontSize: 20, color: "var(--blue)" }}>✓</div>
-                  : <button className="ghost-button" onClick={() => onApprove(role)} style={{ fontSize: 11, padding: "4px 10px" }}>承認する</button>}
+                  ? <div style={{ fontSize: 16, color: "var(--blue)", lineHeight: 1 }}>✓ 承認</div>
+                  : <button className="ghost-button" onClick={() => onApprove(role)} style={{ fontSize: 11, padding: "3px 10px" }}>承認する</button>}
               </div>
             );
           })}
@@ -658,6 +666,15 @@ export default function DailyReportView() {
     }));
   }
 
+  function setApproverName(id: string, role: string, name: string) {
+    updateState(prev => ({
+      ...prev,
+      dailyReports: (prev.dailyReports ?? []).map(r =>
+        r.id === id ? { ...r, approverNames: { ...(r.approverNames ?? {}), [role]: name } } : r
+      ),
+    }));
+  }
+
   function deleteReport(id: string) {
     updateState(prev => ({
       ...prev,
@@ -686,9 +703,14 @@ export default function DailyReportView() {
       <DetailPane
         r={detail}
         wsName={wsName(detail.workspaceId)}
+        nameOptions={Array.from(new Set([
+          ...(state.dailyReports ?? []).flatMap(rep => Object.values(rep.approverNames ?? {})),
+          ...state.users.filter(u => u.active !== false).map(u => u.name),
+        ].filter(Boolean)))}
         onClose={() => setMode("list")}
         onEdit={() => { setEditingReport(detail); setMode("form"); }}
         onApprove={role => approve(detail.id, role)}
+        onSetApproverName={(role, name) => setApproverName(detail.id, role, name)}
         onDelete={() => deleteReport(detail.id)}
       />
     );

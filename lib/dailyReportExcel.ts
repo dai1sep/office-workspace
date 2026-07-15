@@ -76,18 +76,25 @@ export function buildDailyReportCellMap(r: DailyReport, wsName: string): Record<
   // 記事
   put("X31", r.notes);
 
-  // 作業員 電子サイン欄: テンプレートの「サイン欄」ボックス（B38:S42）にサイン確定者を記名
+  // 作業員 電子サイン欄: テンプレートの「サイン欄」ボックス（B38:S42）にサイン確定者を記名（縦書き）
   const signed = (r.signedWorkers ?? []).filter((n) => n && n.trim());
   if (signed.length) put("B38", signed.join("　"));
+  // 承認欄（確認欄）: 役職の記名を U38:AH42 ボックスに（縦書き）
+  const APPROVAL_ROLES = ["社長", "工事部部長", "工事部次長", "統括所長", "工事担当者"];
+  const approverNames = APPROVAL_ROLES.map((role) => r.approverNames?.[role]?.trim()).filter(Boolean);
+  if (approverNames.length) put("U38", approverNames.join("　"));
 
   return map;
 }
+
+// サイン欄/確認欄など、Excel・印刷で縦書きにするセル
+export const DAILY_REPORT_VERTICAL_CELLS = ["B38", "U38"];
 
 export async function downloadDailyReportExcel(r: DailyReport, wsName: string) {
   const res = await fetch(TEMPLATE_URL);
   if (!res.ok) throw new Error("工事打合簿テンプレートを読み込めませんでした（public/templates を確認してください）");
   const buf = await res.arrayBuffer();
-  const blob = await patchXlsxCells(buf, buildDailyReportCellMap(r, wsName));
+  const blob = await patchXlsxCells(buf, buildDailyReportCellMap(r, wsName), DAILY_REPORT_VERTICAL_CELLS);
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -107,5 +114,10 @@ export async function printDailyReport(r: DailyReport, wsName: string) {
   const ws = wb.worksheets[0];
   const map = buildDailyReportCellMap(r, wsName);
   for (const [ref, val] of Object.entries(map)) ws.getCell(ref).value = val === "" ? null : val;
+  // サイン欄/確認欄は縦書きで印刷（印刷エンジンが textRotation:"vertical" を writing-mode に変換）
+  for (const ref of DAILY_REPORT_VERTICAL_CELLS) {
+    const cell = ws.getCell(ref);
+    cell.alignment = { ...(cell.alignment ?? {}), textRotation: "vertical", horizontal: "center", vertical: "top" };
+  }
   printWorksheet(ws, `工事打合簿 ${wsName}`);
 }
