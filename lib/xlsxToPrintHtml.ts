@@ -113,7 +113,8 @@ export function worksheetToHtml(ws: ExcelJS.Worksheet, opts: RenderOpts = {}): {
       style += `text-align:${al.horizontal === "distributed" ? "center" : (al.horizontal ?? "left")};vertical-align:${al.vertical === "middle" ? "middle" : (al.vertical ?? "top")};`;
       const rot = al.textRotation;
       if (rot === "vertical") {
-        style += "writing-mode:vertical-rl;text-orientation:upright;white-space:nowrap;";
+        // pre-line: 改行で列送り＋はみ出し時は折り返し（幅広ボックスに複数名を縦書きで並べられる）
+        style += "writing-mode:vertical-rl;text-orientation:upright;white-space:pre-line;";
       } else if (typeof rot === "number" && rot !== 0) {
         style += `transform:rotate(${rot > 90 ? 90 - rot : -rot}deg);white-space:nowrap;`;
       } else {
