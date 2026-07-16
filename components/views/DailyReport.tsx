@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useApp } from "@/lib/context";
-import { uid } from "@/lib/utils";
+import { uid, userName } from "@/lib/utils";
 import { downloadDailyReportExcel, printDailyReport } from "@/lib/dailyReportExcel";
 import {
   DailyReport,
@@ -11,6 +11,7 @@ import {
   DailyReportSubcontractor,
   DailyReportEquipment,
   DailyReportMaterial,
+  DailyReportProgress,
   DailyReportSafetyItem,
 } from "@/lib/types";
 
@@ -53,9 +54,9 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Inp({ value, onChange, placeholder, style }: { value: string | number; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties }) {
+function Inp({ value, onChange, placeholder, style, list }: { value: string | number; onChange: (v: string) => void; placeholder?: string; style?: React.CSSProperties; list?: string }) {
   return (
-    <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder}
+    <input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} list={list}
       style={{ width: "100%", padding: "5px 8px", border: "1px solid var(--line)", borderRadius: 6, background: "var(--panel)", color: "var(--text)", fontSize: 12, ...style }} />
   );
 }
@@ -302,10 +303,16 @@ function DetailPane({ r, wsName, nameOptions, onClose, onEdit, onApprove, onSetA
 /* ══════════════════════════════════════════
    入力フォーム
 ══════════════════════════════════════════ */
-function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
+function FormPane({ initial, workspaces, currentUser, sources, onSave, onCancel }: {
   initial: Partial<DailyReport>;
   workspaces: { id: string; name: string }[];
   currentUser: string | null;
+  sources: {
+    memberNames: (wsId: string) => string[];        // 工事スペースの配属メンバー氏名
+    subcontractors: (wsId: string) => { company: string; jobType: string; workContent?: string }[]; // 下請編成＋業者マスタ
+    latestReport: (wsId: string, excludeId?: string) => DailyReport | undefined; // 同現場の直近日報
+    companyOptions: string[]; jobTypeOptions: string[]; machineOptions: string[]; // 選択候補
+  };
   onSave: (r: DailyReport, status: DailyReport["status"]) => void;
   onCancel: () => void;
 }) {
@@ -323,6 +330,64 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
     ...signed,                                                       // 既存のサイン確定者
   ]));
   const toggleSign = (name: string) => setSigned(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name]);
+
+  // ── 入力補助（前日複製・現場連動） ──
+  function importFromLast() {
+    const wsId = form.workspaceId;
+    const prev = wsId ? sources.latestReport(wsId, editing ? String(initial.id) : undefined) : undefined;
+    if (!prev) { alert("この現場の過去日報が見つかりません。"); return; }
+    setForm(f => ({
+      ...f,
+      plannedWork: prev.plannedWork,
+      subcontractors: prev.subcontractors.map(s => ({ ...s })),
+      attendees: prev.attendees.map(a => ({ ...a })),
+      equipment: prev.equipment.map(e => ({ ...e })),
+      // 資材：受入/使用の累計を繰越、本日=0、残量=受入累計-使用累計
+      materials: prev.materials.map(m => ({ ...m, receivedToday: 0, usedToday: 0, remaining: (m.receivedTotal || 0) - (m.usedTotal || 0) })),
+      // 出来高：累計を繰越、本日=0、残=全数量-累計、進捗=累計/全数量
+      progressItems: (prev.progressItems ?? []).map(p => ({ ...p, todayQty: 0, remainQty: Math.max(0, (p.totalQty || 0) - (p.cumQty || 0)), progress: p.totalQty ? Math.round((p.cumQty || 0) / p.totalQty * 100) : 0 })),
+    }));
+  }
+  function importMembers() {
+    const names = form.workspaceId ? sources.memberNames(form.workspaceId) : [];
+    if (!names.length) { alert("この現場に配属メンバーがいません（工事スペースで配属してください）。"); return; }
+    setForm(f => {
+      const existing = new Set(f.attendees.map(a => a.name.trim()).filter(Boolean));
+      const add = names.filter(n => !existing.has(n)).map(n => ({ name: n, jobType: "", present: true, startTime: "08:00", endTime: "17:00" }));
+      return { ...f, attendees: [...f.attendees.filter(a => a.name.trim()), ...add] };
+    });
+  }
+  function importSubs() {
+    const subs = form.workspaceId ? sources.subcontractors(form.workspaceId) : [];
+    if (!subs.length) { alert("下請編成・業者マスタが見つかりません。"); return; }
+    setForm(f => {
+      const existing = new Set(f.subcontractors.map(s => s.company.trim()).filter(Boolean));
+      const add = subs.filter(s => !existing.has(s.company)).map(s => ({ company: s.company, jobType: s.jobType, workContent: s.workContent ?? "", machineName: "", machineCount: 0, machineCumCount: 0, workers: 1, startTime: "08:00", endTime: "17:00" }));
+      return { ...f, subcontractors: [...f.subcontractors.filter(s => s.company.trim()), ...add] };
+    });
+  }
+  // 出来高の自動計算（残=全数量-累計、進捗=累計/全数量）
+  function updProgress(i: number, patch: Partial<DailyReportProgress>) {
+    setForm(prev => {
+      const items = [...(prev.progressItems ?? [])];
+      const merged = { ...items[i], ...patch };
+      const total = merged.totalQty || 0, cum = merged.cumQty || 0;
+      merged.remainQty = Math.max(0, total - cum);
+      merged.progress = total ? Math.round(cum / total * 100) : 0;
+      items[i] = merged;
+      return { ...prev, progressItems: items };
+    });
+  }
+  // 資材の自動計算（残量=受入累計-使用累計）
+  function updMaterial(i: number, patch: Partial<DailyReportMaterial>) {
+    setForm(prev => {
+      const a = [...prev.materials];
+      const merged = { ...a[i], ...patch };
+      merged.remaining = (merged.receivedTotal || 0) - (merged.usedTotal || 0);
+      a[i] = merged;
+      return { ...prev, materials: a };
+    });
+  }
   function setF(p: Partial<typeof form>) { setForm(prev => ({ ...prev, ...p })); }
   function addRow<T>(f: keyof typeof form, empty: T) { setForm(prev => ({ ...prev, [f]: [...(prev[f] as T[]), empty] })); }
   function updRow<T>(f: keyof typeof form, i: number, p: Partial<T>) {
@@ -390,6 +455,21 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 18 }}>
         <button className="ghost-button" onClick={onCancel} style={{ fontSize: 12 }}>← 一覧</button>
         <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>{editing ? "日報を編集" : "新規日報作成"}</h2>
+      </div>
+
+      {/* 選択候補（datalist） */}
+      <datalist id="dr-company">{sources.companyOptions.map(o => <option key={o} value={o} />)}</datalist>
+      <datalist id="dr-jobtype">{sources.jobTypeOptions.map(o => <option key={o} value={o} />)}</datalist>
+      <datalist id="dr-machine">{sources.machineOptions.map(o => <option key={o} value={o} />)}</datalist>
+      <datalist id="dr-unit">{["本", "m", "m2", "m3", "t", "kg", "式", "箇所", "台", "枚"].map(o => <option key={o} value={o} />)}</datalist>
+
+      {/* 入力補助（前日複製・現場連動） */}
+      <div className="panel" style={{ marginBottom: 14, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+        <span className="muted-text" style={{ fontSize: 12 }}>入力補助：</span>
+        <button className="ghost-button" onClick={importFromLast} disabled={!form.workspaceId} style={{ fontSize: 12 }}>📄 前回日報を複製（累計を繰越）</button>
+        <button className="ghost-button" onClick={importMembers} disabled={!form.workspaceId} style={{ fontSize: 12 }}>👷 配属メンバーを出役に取込</button>
+        <button className="ghost-button" onClick={importSubs} disabled={!form.workspaceId} style={{ fontSize: 12 }}>🏢 下請編成から協力業者を取込</button>
+        {!form.workspaceId && <span className="muted-text" style={{ fontSize: 11 }}>※先に工事現場を選択</span>}
       </div>
 
       {/* 基本情報 */}
@@ -480,10 +560,10 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
         </div>
         {form.subcontractors.map((s, i) => (
           <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 2fr 1.5fr 70px 80px 80px 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
-            <Inp value={s.company} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { company: v })} placeholder="業者名" />
-            <Inp value={s.jobType} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { jobType: v })} placeholder="工種" />
+            <Inp value={s.company} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { company: v })} placeholder="業者名" list="dr-company" />
+            <Inp value={s.jobType} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { jobType: v })} placeholder="工種" list="dr-jobtype" />
             <Inp value={s.workContent ?? ""} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { workContent: v })} placeholder="作業内容" />
-            <Inp value={s.machineName ?? ""} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { machineName: v })} placeholder="機械名" />
+            <Inp value={s.machineName ?? ""} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { machineName: v })} placeholder="機械名" list="dr-machine" />
             <Inp value={s.machineCount ?? 0} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { machineCount: Number(v) })} />
             <Inp value={s.machineCumCount ?? 0} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { machineCumCount: Number(v) })} />
             <Inp value={s.workers} onChange={v => updRow<DailyReportSubcontractor>("subcontractors", i, { workers: Number(v) })} />
@@ -503,7 +583,7 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
         </div>
         {form.equipment.map((e, i) => (
           <div key={i} style={{ display: "grid", gridTemplateColumns: "3fr 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
-            <Inp value={e.name} onChange={v => updRow<DailyReportEquipment>("equipment", i, { name: v })} placeholder="機械名称" />
+            <Inp value={e.name} onChange={v => updRow<DailyReportEquipment>("equipment", i, { name: v })} placeholder="機械名称" list="dr-machine" />
             <Inp value={e.count} onChange={v => updRow<DailyReportEquipment>("equipment", i, { count: Number(v) })} />
             <Inp value={e.fuel} onChange={v => updRow<DailyReportEquipment>("equipment", i, { fuel: Number(v) })} />
             {delBtn("equipment", i)}
@@ -522,11 +602,11 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
           <div key={i} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1fr 1fr 1fr 1fr 1fr auto", gap: 6, marginBottom: 6 }}>
             <Inp value={m.name} onChange={v => updRow<DailyReportMaterial>("materials", i, { name: v })} placeholder="資材名称" />
             <Inp value={m.type} onChange={v => updRow<DailyReportMaterial>("materials", i, { type: v })} placeholder="種類" />
-            <Inp value={m.receivedToday} onChange={v => updRow<DailyReportMaterial>("materials", i, { receivedToday: Number(v) })} />
-            <Inp value={m.receivedTotal} onChange={v => updRow<DailyReportMaterial>("materials", i, { receivedTotal: Number(v) })} />
-            <Inp value={m.usedToday} onChange={v => updRow<DailyReportMaterial>("materials", i, { usedToday: Number(v) })} />
-            <Inp value={m.usedTotal} onChange={v => updRow<DailyReportMaterial>("materials", i, { usedTotal: Number(v) })} />
-            <Inp value={m.remaining} onChange={v => updRow<DailyReportMaterial>("materials", i, { remaining: Number(v) })} />
+            <Inp value={m.receivedToday} onChange={v => updMaterial(i, { receivedToday: Number(v) })} />
+            <Inp value={m.receivedTotal} onChange={v => updMaterial(i, { receivedTotal: Number(v) })} />
+            <Inp value={m.usedToday} onChange={v => updMaterial(i, { usedToday: Number(v) })} />
+            <Inp value={m.usedTotal} onChange={v => updMaterial(i, { usedTotal: Number(v) })} />
+            <Inp value={m.remaining} onChange={v => updMaterial(i, { remaining: Number(v) })} style={{ background: "var(--soft)" }} />
             {delBtn("materials", i)}
           </div>
         ))}
@@ -541,41 +621,13 @@ function FormPane({ initial, workspaces, currentUser, onSave, onCancel }: {
         </div>
         {(form.progressItems ?? []).map((p, i) => (
           <div key={i} style={{ display: "grid", gridTemplateColumns: "1.5fr 80px 1fr 1fr 1fr 1fr 80px auto", gap: 6, marginBottom: 6 }}>
-            <Inp value={p.caseType} onChange={v => {
-              const items = [...(form.progressItems ?? [])];
-              items[i] = { ...items[i], caseType: v };
-              setF({ progressItems: items });
-            }} placeholder="CASE-A" />
-            <Inp value={p.unit} onChange={v => {
-              const items = [...(form.progressItems ?? [])];
-              items[i] = { ...items[i], unit: v };
-              setF({ progressItems: items });
-            }} placeholder="本" />
-            <Inp value={p.totalQty} onChange={v => {
-              const items = [...(form.progressItems ?? [])];
-              items[i] = { ...items[i], totalQty: Number(v) };
-              setF({ progressItems: items });
-            }} />
-            <Inp value={p.todayQty} onChange={v => {
-              const items = [...(form.progressItems ?? [])];
-              items[i] = { ...items[i], todayQty: Number(v) };
-              setF({ progressItems: items });
-            }} />
-            <Inp value={p.cumQty} onChange={v => {
-              const items = [...(form.progressItems ?? [])];
-              items[i] = { ...items[i], cumQty: Number(v) };
-              setF({ progressItems: items });
-            }} />
-            <Inp value={p.remainQty} onChange={v => {
-              const items = [...(form.progressItems ?? [])];
-              items[i] = { ...items[i], remainQty: Number(v) };
-              setF({ progressItems: items });
-            }} />
-            <Inp value={p.progress} onChange={v => {
-              const items = [...(form.progressItems ?? [])];
-              items[i] = { ...items[i], progress: Number(v) };
-              setF({ progressItems: items });
-            }} />
+            <Inp value={p.caseType} onChange={v => updProgress(i, { caseType: v })} placeholder="CASE-A" />
+            <Inp value={p.unit} onChange={v => updProgress(i, { unit: v })} placeholder="本" list="dr-unit" />
+            <Inp value={p.totalQty} onChange={v => updProgress(i, { totalQty: Number(v) })} />
+            <Inp value={p.todayQty} onChange={v => updProgress(i, { todayQty: Number(v) })} />
+            <Inp value={p.cumQty} onChange={v => updProgress(i, { cumQty: Number(v) })} />
+            <Inp value={p.remainQty} onChange={v => updProgress(i, { remainQty: Number(v) })} style={{ background: "var(--soft)" }} />
+            <Inp value={p.progress} onChange={v => updProgress(i, { progress: Number(v) })} style={{ background: "var(--soft)" }} />
             <button style={{ background: "none", border: "none", color: "var(--muted)", cursor: "pointer" }} onClick={() => {
               setF({ progressItems: (form.progressItems ?? []).filter((_, j) => j !== i) });
             }}>✕</button>
@@ -692,6 +744,19 @@ export default function DailyReportView() {
         initial={editingReport ?? {}}
         workspaces={workspaces}
         currentUser={currentUser}
+        sources={{
+          memberNames: (wsId) => (state.workspaces.find(w => w.id === wsId)?.memberIds ?? []).map(id => userName(state, id)).filter(n => n && n !== "未設定"),
+          subcontractors: (wsId) => {
+            const oc = (state.orgCharts ?? []).filter(c => c.workspaceId === wsId).sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt))[0];
+            const fromOc = (oc?.entries ?? []).filter(e => e.companyName).map(e => ({ company: e.companyName, jobType: e.jobType, workContent: e.workContent }));
+            if (fromOc.length) return fromOc;
+            return (state.subcontractors ?? []).map(s => ({ company: s.companyName, jobType: s.jobType }));
+          },
+          latestReport: (wsId, excludeId) => (state.dailyReports ?? []).filter(d => d.workspaceId === wsId && d.id !== excludeId).sort((a, b) => (b.implementDate || "").localeCompare(a.implementDate || ""))[0],
+          companyOptions: Array.from(new Set([...(state.subcontractors ?? []).map(s => s.companyName), ...(state.orgCharts ?? []).flatMap(c => c.entries.map(e => e.companyName))].filter(Boolean))),
+          jobTypeOptions: Array.from(new Set([...(state.subcontractors ?? []).map(s => s.jobType), ...(state.dailyReports ?? []).flatMap(d => d.subcontractors.map(s => s.jobType))].filter(Boolean))),
+          machineOptions: Array.from(new Set([...(state.fieldResources ?? []).map(r => r.name), ...(state.dailyReports ?? []).flatMap(d => d.equipment.map(e => e.name))].filter(Boolean))),
+        }}
         onSave={r => save(r)}
         onCancel={() => setMode(detailId ? "detail" : "list")}
       />
