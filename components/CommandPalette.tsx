@@ -24,7 +24,6 @@ const COMMANDS: { id: ViewId; icon: string; label: string; sub: string }[] = [
   { id: "admin", icon: "管", label: "組織・権限管理", sub: "ユーザーと権限" },
   { id: "employees", icon: "員", label: "社員管理", sub: "社内メンバーの情報管理" },
   { id: "folder", icon: "個", label: "個人フォルダ", sub: "個人メモ" },
-  { id: "safetydocs", icon: "盾", label: "安全書類", sub: "下請負業者編成表・施工体制台帳" },
   { id: "process", icon: "程", label: "工程管理", sub: "工事の工程・進捗をガント管理" },
   { id: "licenses", icon: "証", label: "資格・許可管理", sub: "建設業許可・社員資格" },
   { id: "dailyreport", icon: "日", label: "工事日報", sub: "工事打合簿・品質安全日誌" },

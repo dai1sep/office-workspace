@@ -18,7 +18,6 @@ export type ViewId =
   | "search"
   | "licenses"
   | "dailyreport"
-  | "safetydocs"
   | "employees"
   | "process"
   | "pipeline";

@@ -28,7 +28,6 @@ const NAV_ITEMS: { view: ViewId; icon: string; label: string; adminOnly?: boolea
   { view: "pipeline", icon: "進", label: "進捗管理" },
   { view: "licenses", icon: "証", label: "資格・許可管理" },
   { view: "dailyreport", icon: "日", label: "工事日報" },
-  { view: "safetydocs", icon: "盾", label: "安全書類" },
 ];
 
 const BOTTOM_TABS: ViewId[] = ["dashboard", "todo", "schedule", "bulletin", "messages"];
