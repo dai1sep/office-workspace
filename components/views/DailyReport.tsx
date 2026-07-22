@@ -309,7 +309,6 @@ function FormPane({ initial, workspaces, currentUser, sources, onSave, onCancel 
   currentUser: string | null;
   sources: {
     memberNames: (wsId: string) => string[];        // 工事スペースの配属メンバー氏名
-    subcontractors: (wsId: string) => { company: string; jobType: string; workContent?: string }[]; // 下請編成＋業者マスタ
     latestReport: (wsId: string, excludeId?: string) => DailyReport | undefined; // 同現場の直近日報
     companyOptions: string[]; jobTypeOptions: string[]; machineOptions: string[]; // 選択候補
   };
@@ -355,15 +354,6 @@ function FormPane({ initial, workspaces, currentUser, sources, onSave, onCancel 
       const existing = new Set(f.attendees.map(a => a.name.trim()).filter(Boolean));
       const add = names.filter(n => !existing.has(n)).map(n => ({ name: n, jobType: "", present: true, startTime: "08:00", endTime: "17:00" }));
       return { ...f, attendees: [...f.attendees.filter(a => a.name.trim()), ...add] };
-    });
-  }
-  function importSubs() {
-    const subs = form.workspaceId ? sources.subcontractors(form.workspaceId) : [];
-    if (!subs.length) { alert("下請編成・業者マスタが見つかりません。"); return; }
-    setForm(f => {
-      const existing = new Set(f.subcontractors.map(s => s.company.trim()).filter(Boolean));
-      const add = subs.filter(s => !existing.has(s.company)).map(s => ({ company: s.company, jobType: s.jobType, workContent: s.workContent ?? "", machineName: "", machineCount: 0, machineCumCount: 0, workers: 1, startTime: "08:00", endTime: "17:00" }));
-      return { ...f, subcontractors: [...f.subcontractors.filter(s => s.company.trim()), ...add] };
     });
   }
   // 出来高の自動計算（残=全数量-累計、進捗=累計/全数量）
@@ -468,7 +458,6 @@ function FormPane({ initial, workspaces, currentUser, sources, onSave, onCancel 
         <span className="muted-text" style={{ fontSize: 12 }}>入力補助：</span>
         <button className="ghost-button" onClick={importFromLast} disabled={!form.workspaceId} style={{ fontSize: 12 }}>📄 前回日報を複製（累計を繰越）</button>
         <button className="ghost-button" onClick={importMembers} disabled={!form.workspaceId} style={{ fontSize: 12 }}>👷 配属メンバーを出役に取込</button>
-        <button className="ghost-button" onClick={importSubs} disabled={!form.workspaceId} style={{ fontSize: 12 }}>🏢 下請編成から協力業者を取込</button>
         {!form.workspaceId && <span className="muted-text" style={{ fontSize: 11 }}>※先に工事現場を選択</span>}
       </div>
 
@@ -746,15 +735,9 @@ export default function DailyReportView() {
         currentUser={currentUser}
         sources={{
           memberNames: (wsId) => (state.workspaces.find(w => w.id === wsId)?.memberIds ?? []).map(id => userName(state, id)).filter(n => n && n !== "未設定"),
-          subcontractors: (wsId) => {
-            const oc = (state.orgCharts ?? []).filter(c => c.workspaceId === wsId).sort((a, b) => (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt))[0];
-            const fromOc = (oc?.entries ?? []).filter(e => e.companyName).map(e => ({ company: e.companyName, jobType: e.jobType, workContent: e.workContent }));
-            if (fromOc.length) return fromOc;
-            return (state.subcontractors ?? []).map(s => ({ company: s.companyName, jobType: s.jobType }));
-          },
           latestReport: (wsId, excludeId) => (state.dailyReports ?? []).filter(d => d.workspaceId === wsId && d.id !== excludeId).sort((a, b) => (b.implementDate || "").localeCompare(a.implementDate || ""))[0],
-          companyOptions: Array.from(new Set([...(state.subcontractors ?? []).map(s => s.companyName), ...(state.orgCharts ?? []).flatMap(c => c.entries.map(e => e.companyName))].filter(Boolean))),
-          jobTypeOptions: Array.from(new Set([...(state.subcontractors ?? []).map(s => s.jobType), ...(state.dailyReports ?? []).flatMap(d => d.subcontractors.map(s => s.jobType))].filter(Boolean))),
+          companyOptions: Array.from(new Set((state.dailyReports ?? []).flatMap(d => d.subcontractors.map(s => s.company)).filter(Boolean))),
+          jobTypeOptions: Array.from(new Set((state.dailyReports ?? []).flatMap(d => d.subcontractors.map(s => s.jobType)).filter(Boolean))),
           machineOptions: Array.from(new Set([...(state.fieldResources ?? []).map(r => r.name), ...(state.dailyReports ?? []).flatMap(d => d.equipment.map(e => e.name))].filter(Boolean))),
         }}
         onSave={r => save(r)}
