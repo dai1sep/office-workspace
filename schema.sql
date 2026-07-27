@@ -52,7 +52,6 @@ CREATE TABLE IF NOT EXISTS schedules (
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS workspace_id TEXT;
 -- 書き込み系のファイル添付（dataURLをJSONBで保持）
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]';
-ALTER TABLE bulletins ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]';
 
 -- 掲示板
 CREATE TABLE IF NOT EXISTS bulletins (
@@ -79,10 +78,13 @@ CREATE TABLE IF NOT EXISTS bulletins (
   finish_time     TEXT,
   related_files   JSONB NOT NULL DEFAULT '[]',
   subscribers     JSONB NOT NULL DEFAULT '[]',
+  attachments     JSONB NOT NULL DEFAULT '[]',
   draft           BOOLEAN NOT NULL DEFAULT false,
   survey          JSONB,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+-- 既存環境向け（後から追加された列）
+ALTER TABLE bulletins ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]';
 
 -- ワークフロー申請
 CREATE TABLE IF NOT EXISTS workflows (
@@ -317,41 +319,8 @@ CREATE TABLE IF NOT EXISTS addresses (
   mobile TEXT
 );
 
--- Row Level Security（全テーブルに有効化）
-ALTER TABLE users         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE schedules     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE bulletins     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE workflows     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE todos         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE mails         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE files         ENABLE ROW LEVEL SECURITY;
-ALTER TABLE facilities    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reservations  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE timecards     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE audit_logs    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE addresses     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE workflow_templates ENABLE ROW LEVEL SECURITY;
-ALTER TABLE subcontractors ENABLE ROW LEVEL SECURITY;
-ALTER TABLE org_charts     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE system_ledgers ENABLE ROW LEVEL SECURITY;
-
--- 開発中は全員読み書き可（認証実装後に絞る）
-CREATE POLICY "allow_all_dev" ON users         FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON schedules     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON bulletins     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON workflows     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON todos         FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON mails         FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON files         FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON facilities    FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON reservations  FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON timecards     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON audit_logs    FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON addresses     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON workflow_templates FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON subcontractors FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON org_charts     FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON system_ledgers FOR ALL USING (true) WITH CHECK (true);
+-- RLS（Row Level Security）はこのファイル末尾の DO ブロックで
+-- 全テーブルにまとめて適用する（ここでは個別設定しない）。
 
 -- ── 現場リソース管理（Arune相当） ─────────────────────────────
 -- リソース（重機・機材・車両・人員）
@@ -404,11 +373,6 @@ CREATE TABLE IF NOT EXISTS process_tasks (
   created_at   TIMESTAMPTZ DEFAULT NOW()
 );
 
-ALTER TABLE field_resources       ENABLE ROW LEVEL SECURITY;
-ALTER TABLE resource_allocations  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE resource_inspections  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE process_tasks         ENABLE ROW LEVEL SECURITY;
-
 -- 進捗管理（インパクトマップ）: 1マップ=1行、nodes を JSONB で保持
 CREATE TABLE IF NOT EXISTS progress_maps (
   id         TEXT PRIMARY KEY,
@@ -416,7 +380,6 @@ CREATE TABLE IF NOT EXISTS progress_maps (
   nodes      JSONB NOT NULL DEFAULT '[]',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-ALTER TABLE progress_maps          ENABLE ROW LEVEL SECURITY;
 
 -- 案件パイプライン（顧客・案件）
 CREATE TABLE IF NOT EXISTS customers (
@@ -447,17 +410,6 @@ CREATE TABLE IF NOT EXISTS deals (
   created_at   TEXT NOT NULL DEFAULT '',
   notes        TEXT
 );
-ALTER TABLE customers              ENABLE ROW LEVEL SECURITY;
-ALTER TABLE deals                  ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "allow_all_dev" ON field_resources      FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON resource_allocations FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON resource_inspections FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON process_tasks        FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON progress_maps        FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON customers            FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON deals                FOR ALL USING (true) WITH CHECK (true);
-
 -- ── 本格導入で追加のテーブル ───────────────────────────────────
 -- ファイル公開設定（フォルダ単位・部署/ロール軸）
 CREATE TABLE IF NOT EXISTS file_folders (
@@ -560,18 +512,21 @@ CREATE TABLE IF NOT EXISTS prime_profile (
   profile JSONB NOT NULL DEFAULT '{}'
 );
 
-ALTER TABLE file_folders            ENABLE ROW LEVEL SECURITY;
-ALTER TABLE workspaces              ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_reports           ENABLE ROW LEVEL SECURITY;
-ALTER TABLE knowledge               ENABLE ROW LEVEL SECURITY;
-ALTER TABLE construction_licenses   ENABLE ROW LEVEL SECURITY;
-ALTER TABLE employee_certifications ENABLE ROW LEVEL SECURITY;
-ALTER TABLE prime_profile           ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "allow_all_dev" ON file_folders            FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON workspaces              FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON daily_reports           FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON knowledge               FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON construction_licenses   FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON employee_certifications FOR ALL USING (true) WITH CHECK (true);
-CREATE POLICY "allow_all_dev" ON prime_profile           FOR ALL USING (true) WITH CHECK (true);
+-- ══════════════════════════════════════════════════════════════
+-- 本番RLS：ログイン済み(authenticated)のみ全操作を許可、匿名(anon)は不可。
+-- public スキーマの全テーブルに一括適用（新テーブルにも自動で下記が効く）。
+-- これにより「URLを知っているだけ」の外部アクセスを遮断する。
+-- 何度でも安全に再実行できる（既存ポリシーを作り直す）。
+-- ※ Supabase Auth を使わずローカル(localStorage)運用する場合はこのブロックを実行しないこと。
+-- ══════════════════════════════════════════════════════════════
+DO $$
+DECLARE t text;
+BEGIN
+  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('DROP POLICY IF EXISTS allow_all_dev ON public.%I', t);
+    EXECUTE format('DROP POLICY IF EXISTS auth_all ON public.%I', t);
+    EXECUTE format('CREATE POLICY auth_all ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t);
+  END LOOP;
+END $$;
