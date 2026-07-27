@@ -3,9 +3,10 @@
 import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from "react";
 import { AppState, ViewId } from "./types";
 import { loadState, saveState, seedState } from "./store";
-import { isSupabaseReady, supabase } from "./supabase";
-import { fetchAllState, seedIfEmpty } from "./db";
+import { isSupabaseReady, supabase, createLoginAccount as createLoginAccountApi } from "./supabase";
+import { fetchAllState, seedIfEmpty, upsertUser } from "./db";
 import { syncToSupabase } from "./sync";
+import { uid } from "./utils";
 
 type Theme = "light" | "dark";
 type DbStatus = "local" | "supabase" | "loading";
@@ -32,6 +33,7 @@ interface AppContextValue {
   authMode: "supabase" | "local";
   signInWithEmail: (email: string, password: string) => Promise<{ error: string | null }>;
   authUnlinked: boolean; // 認証は成功したが、社員データにメールが一致しない状態
+  createLoginAccount: (email: string, password: string) => Promise<{ error: string | null }>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -76,13 +78,29 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await seedIfEmpty(seedState); // 空なら初期データを投入（認証済のためRLSを通過）
         const remote = await fetchAllState();
         setState((prev) => ({ ...prev, ...remote }));
-        const email = session.user.email?.toLowerCase() ?? "";
+        const rawEmail = session.user.email ?? "";
+        const email = rawEmail.toLowerCase();
         const appUser = (remote.users ?? []).find((u) => u.email.toLowerCase() === email);
         if (appUser) {
           setCurrentUser(appUser.id);
           setAuthUnlinked(false);
+        } else if (email) {
+          // 初回ログイン: 社員データが無ければ自動作成（一般ユーザー）。管理者が後で部署/ロールを設定。
+          const newUser = {
+            id: uid("u"), name: rawEmail.split("@")[0] || "新規ユーザー", dept: "",
+            role: "一般ユーザー", email: rawEmail, ext: "", active: true,
+          };
+          try {
+            await upsertUser(newUser);
+            setState((prev) => ({ ...prev, users: [...prev.users, newUser] }));
+            setCurrentUser(newUser.id);
+            setAuthUnlinked(false);
+          } catch (e) {
+            console.error("[Supabase] 社員データ自動作成に失敗", e);
+            setCurrentUser(null);
+            setAuthUnlinked(true);
+          }
         } else {
-          // 認証は通ったが社員データにメールが無い
           setCurrentUser(null);
           setAuthUnlinked(true);
         }
@@ -134,6 +152,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return { error: error ? error.message : null };
   }, []);
 
+  // 管理者が従業員のログインアカウントを作成（社員データ側の登録は呼び出し元がupdateStateで行う）。
+  const createLoginAccount = useCallback((email: string, password: string) => createLoginAccountApi(email, password), []);
+
   const logout = useCallback(() => {
     if (supabase) {
       supabase.auth.signOut(); // onAuthStateChange で currentUser=null になる
@@ -178,6 +199,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         authMode,
         signInWithEmail,
         authUnlinked,
+        createLoginAccount,
       }}
     >
       {children}

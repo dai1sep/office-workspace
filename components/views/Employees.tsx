@@ -12,13 +12,17 @@ const ROLES = ["管理者", "部門管理者", "一般ユーザー"];
 const emptyUser = (): User => ({ id: uid("u"), name: "", dept: "", role: "一般ユーザー", email: "", ext: "", employeeNo: "", title: "", phone: "", joinedDate: "", active: true });
 
 export default function EmployeesView() {
-  const { state, updateState, can } = useApp();
+  const { state, updateState, can, authMode, createLoginAccount } = useApp();
   const editable = can("admin");
   const [query, setQuery] = useState("");
   const [deptFilter, setDeptFilter] = useState("");
   const [showRetired, setShowRetired] = useState(false);
   const [editing, setEditing] = useState<User | null>(null);
   const [open, setOpen] = useState(false);
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  // 編集中のユーザーが新規（まだstateに無い）かどうか
+  const isNew = editing ? !state.users.some((x) => x.id === editing.id) : false;
 
   const depts = useMemo(() => [...new Set(state.users.map((u) => u.dept).filter(Boolean))], [state.users]);
   const visible = useMemo(() => state.users.filter((u) => {
@@ -30,13 +34,25 @@ export default function EmployeesView() {
 
   const activeCount = state.users.filter((u) => u.active !== false).length;
 
-  function openNew() { setEditing(emptyUser()); setOpen(true); }
-  function openEdit(u: User) { setEditing({ ...u }); setOpen(true); }
+  function openNew() { setEditing(emptyUser()); setPassword(""); setOpen(true); }
+  function openEdit(u: User) { setEditing({ ...u }); setPassword(""); setOpen(true); }
   function patch(p: Partial<User>) { setEditing((prev) => prev ? { ...prev, ...p } : prev); }
-  function save() {
+  async function save() {
     if (!editing || !editing.name.trim()) return;
     const u = editing;
+    // 新規 & Supabaseモード & メール+パスワードあり → ログインアカウントも同時作成
+    if (isNew && authMode === "supabase" && u.email.trim() && password) {
+      if (password.length < 6) { alert("パスワードは6文字以上にしてください。"); return; }
+      setSaving(true);
+      const { error } = await createLoginAccount(u.email.trim(), password);
+      setSaving(false);
+      if (error) {
+        alert("ログインアカウントの作成に失敗しました：\n" + error + "\n\n（同じメールが既に登録済み、または Supabase の設定をご確認ください）");
+        return;
+      }
+    }
     updateState((prev) => ({ ...prev, users: prev.users.some((x) => x.id === u.id) ? prev.users.map((x) => x.id === u.id ? u : x) : [...prev.users, u] }));
+    setPassword("");
     setOpen(false);
   }
   function remove(id: string) {
@@ -97,7 +113,22 @@ export default function EmployeesView() {
             <label>携帯・連絡先<input style={inputStyle} value={editing.phone ?? ""} onChange={(e) => patch({ phone: e.target.value })} /></label>
           </div>
           <label style={{ display: "flex", gap: 7, alignItems: "center", fontSize: 13 }}><input type="checkbox" checked={editing.active !== false} onChange={(e) => patch({ active: e.target.checked })} />在籍中</label>
-          <div style={{ display: "flex", justifyContent: "flex-end" }}><button className="ghost-button" onClick={save} disabled={!editing.name.trim()} style={{ background: "var(--green)", color: "white" }}>保存する</button></div>
+
+          {isNew && authMode === "supabase" && (
+            <div style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 12, background: "var(--soft)" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 4 }}>ログインアカウントも作成する（任意）</div>
+              <p className="muted-text" style={{ margin: "0 0 8px", fontSize: 11.5, lineHeight: 1.7 }}>
+                上の<strong>メール</strong>と、下の<strong>初期パスワード</strong>を入れて保存すると、この社員が<strong>メール＋パスワードでログイン</strong>できるようになります。<br />
+                空欄なら社員データだけ登録します（ログインは後で作成可）。
+              </p>
+              <label>初期パスワード（6文字以上）
+                <input style={inputStyle} type="text" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="例）本人に伝えるパスワード" autoComplete="new-password" />
+              </label>
+              {!editing.email.trim() && password && <div style={{ color: "#a33", fontSize: 11.5, marginTop: 4 }}>メールを入力してください（ログインIDになります）。</div>}
+            </div>
+          )}
+
+          <div style={{ display: "flex", justifyContent: "flex-end" }}><button className="ghost-button" onClick={save} disabled={!editing.name.trim() || saving} style={{ background: "var(--green)", color: "white" }}>{saving ? "作成中…" : "保存する"}</button></div>
         </div>}
       </Modal>
     </div>

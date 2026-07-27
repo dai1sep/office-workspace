@@ -25,3 +25,19 @@ function makeClient(): SupabaseClient | null {
 export const supabase: SupabaseClient | null = makeClient();
 
 export const isSupabaseReady = (): boolean => supabase !== null;
+
+// 管理者が従業員のログインアカウントを作成する。
+// セッションを保持しない一時クライアントで signUp するため、操作中の管理者のログインは維持される。
+// ※ Supabaseの Auth 設定で「Confirm email」を OFF にしておくと、作成後すぐログインできる。
+export async function createLoginAccount(email: string, password: string): Promise<{ error: string | null }> {
+  if (!url || !key) return { error: "Supabaseが設定されていません（ローカルモード）" };
+  try {
+    const tmp = createClient(url, key, {
+      auth: { persistSession: false, autoRefreshToken: false, storageKey: "ow-admin-signup-tmp" },
+    });
+    const { error } = await tmp.auth.signUp({ email: email.trim(), password });
+    return { error: error ? error.message : null };
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : String(error) };
+  }
+}
