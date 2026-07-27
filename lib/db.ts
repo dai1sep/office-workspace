@@ -12,6 +12,8 @@ import type {
   Subcontractor, SubcontractorOrgChart, ConstructionSystemLedger,
   FieldResource, ResourceAllocation, ResourceInspection,
   ProcessTask, ProgressMap, Customer, Deal,
+  WorkSpace, DailyReport, KnowledgeArticle, ConstructionLicense,
+  EmployeeCertification, FileFolder, PrimeCompanyProfile,
 } from "./types";
 
 // ────────────────────────────────────────
@@ -264,6 +266,110 @@ function toProgressMap(r: Record<string, unknown>): ProgressMap {
   };
 }
 
+function toWorkspace(r: Record<string, unknown>): WorkSpace {
+  return {
+    id: r.id as string, name: r.name as string, color: (r.color as string) ?? "#3f6b5b",
+    memberIds: (r.member_ids as string[]) ?? [], description: r.description as string | undefined,
+    location: r.location as string | undefined, createdAt: (r.created_at as string) ?? "",
+  };
+}
+function workspaceRow(w: WorkSpace): Record<string, unknown> {
+  return {
+    id: w.id, name: w.name, color: w.color, member_ids: w.memberIds,
+    description: w.description ?? null, location: w.location ?? null, created_at: w.createdAt,
+  };
+}
+
+function toDailyReport(r: Record<string, unknown>): DailyReport {
+  return {
+    id: r.id as string, workspaceId: r.workspace_id as string,
+    meetingDate: (r.meeting_date as string) ?? "", implementDate: (r.implement_date as string) ?? "",
+    weather: (r.weather as string) ?? "", plannedWork: (r.planned_work as string) ?? "", actualWork: (r.actual_work as string) ?? "",
+    safetyItems: (r.safety_items as DailyReport["safetyItems"]) ?? [],
+    attendees: (r.attendees as DailyReport["attendees"]) ?? [],
+    subcontractors: (r.subcontractors as DailyReport["subcontractors"]) ?? [],
+    equipment: (r.equipment as DailyReport["equipment"]) ?? [],
+    materials: (r.materials as DailyReport["materials"]) ?? [],
+    progressRate: (r.progress_rate as number) ?? 0, plannedDays: (r.planned_days as number) ?? 0, remainingDays: (r.remaining_days as number) ?? 0,
+    notes: (r.notes as string) ?? "", approvals: (r.approvals as Record<string, string>) ?? {},
+    approverNames: (r.approver_names as Record<string, string>) ?? undefined,
+    signedWorkers: (r.signed_workers as string[]) ?? undefined,
+    progressItems: (r.progress_items as DailyReport["progressItems"]) ?? undefined,
+    disasterFreeHours: r.disaster_free_hours as number | undefined,
+    createdBy: (r.created_by as string) ?? "", createdAt: (r.created_at as string) ?? "",
+    status: (r.status as DailyReport["status"]) ?? "draft",
+  };
+}
+function dailyReportRow(d: DailyReport): Record<string, unknown> {
+  return {
+    id: d.id, workspace_id: d.workspaceId, meeting_date: d.meetingDate, implement_date: d.implementDate,
+    weather: d.weather, planned_work: d.plannedWork, actual_work: d.actualWork,
+    safety_items: d.safetyItems ?? [], attendees: d.attendees ?? [], subcontractors: d.subcontractors ?? [],
+    equipment: d.equipment ?? [], materials: d.materials ?? [],
+    progress_rate: d.progressRate, planned_days: d.plannedDays, remaining_days: d.remainingDays,
+    notes: d.notes, approvals: d.approvals ?? {}, approver_names: d.approverNames ?? {}, signed_workers: d.signedWorkers ?? [],
+    progress_items: d.progressItems ?? [], disaster_free_hours: d.disasterFreeHours ?? null,
+    created_by: d.createdBy, created_at: d.createdAt, status: d.status,
+  };
+}
+
+function toKnowledge(r: Record<string, unknown>): KnowledgeArticle {
+  return {
+    id: r.id as string, title: (r.title as string) ?? "", body: (r.body as string) ?? "",
+    author: (r.author as string) ?? "", category: (r.category as string) ?? "",
+    tags: (r.tags as string[]) ?? [], date: (r.date as string) ?? "", updatedAt: (r.updated_at as string) ?? "",
+    pinned: (r.pinned as boolean) ?? false,
+  };
+}
+function knowledgeRow(k: KnowledgeArticle): Record<string, unknown> {
+  return {
+    id: k.id, title: k.title, body: k.body, author: k.author, category: k.category,
+    tags: k.tags ?? [], date: k.date, updated_at: k.updatedAt, pinned: k.pinned,
+  };
+}
+
+function toConstructionLicense(r: Record<string, unknown>): ConstructionLicense {
+  return {
+    id: r.id as string, type: (r.type as string) ?? "", num: (r.num as string) ?? "",
+    kubun: (r.kubun as ConstructionLicense["kubun"]) ?? "知事・一般",
+    acquired: (r.acquired as string) ?? "", expires: (r.expires as string) ?? "", days: (r.days as number) ?? 0,
+    person: (r.person as string) ?? "", dept: (r.dept as string) ?? "",
+    wf: (r.wf as ConstructionLicense["wf"]) ?? "未起票", files: (r.files as number) ?? 0,
+    status: (r.status as ConstructionLicense["status"]) ?? "ok", notes: (r.notes as string) ?? "",
+  };
+}
+function constructionLicenseRow(l: ConstructionLicense): Record<string, unknown> {
+  return {
+    id: l.id, type: l.type, num: l.num, kubun: l.kubun, acquired: l.acquired, expires: l.expires,
+    days: l.days, person: l.person, dept: l.dept, wf: l.wf, files: l.files, status: l.status, notes: l.notes,
+  };
+}
+
+function toEmployeeCertification(r: Record<string, unknown>): EmployeeCertification {
+  return {
+    id: r.id as string, name: (r.name as string) ?? "", category: (r.category as string) ?? "",
+    categoryLabel: (r.category_label as string) ?? "", person: (r.person as string) ?? "", dept: (r.dept as string) ?? "",
+    acquired: (r.acquired as string) ?? "", expires: (r.expires as string | null) ?? null, days: (r.days as number | null) ?? null,
+    renewal: (r.renewal as string) ?? "", status: (r.status as EmployeeCertification["status"]) ?? "ok", notify: (r.notify as boolean) ?? false,
+  };
+}
+function employeeCertificationRow(c: EmployeeCertification): Record<string, unknown> {
+  return {
+    id: c.id, name: c.name, category: c.category, category_label: c.categoryLabel, person: c.person, dept: c.dept,
+    acquired: c.acquired, expires: c.expires ?? null, days: c.days ?? null, renewal: c.renewal, status: c.status, notify: c.notify,
+  };
+}
+
+function toFileFolder(r: Record<string, unknown>): FileFolder {
+  return {
+    id: r.id as string, name: r.name as string, scope: (r.scope as FileFolder["scope"]) ?? "all",
+    allowDepts: (r.allow_depts as string[]) ?? [], allowRoles: (r.allow_roles as string[]) ?? [],
+  };
+}
+function fileFolderRow(f: FileFolder): Record<string, unknown> {
+  return { id: f.id, name: f.name, scope: f.scope, allow_depts: f.allowDepts ?? [], allow_roles: f.allowRoles ?? [] };
+}
+
 // ────────────────────────────────────────
 // 全データ取得（初回ロード用）
 // ────────────────────────────────────────
@@ -295,6 +401,13 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     { data: progressMaps },
     { data: customers },
     { data: deals },
+    { data: workspaces },
+    { data: dailyReports },
+    { data: knowledge },
+    { data: constructionLicenses },
+    { data: employeeCertifications },
+    { data: fileFolders },
+    { data: primeProfileRows },
   ] = await Promise.all([
     db.from("users").select("*").order("name"),
     db.from("schedules").select("*").order("date"),
@@ -319,7 +432,16 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     db.from("progress_maps").select("*").order("title"),
     db.from("customers").select("*").order("name"),
     db.from("deals").select("*").order("created_at", { ascending: false }),
+    db.from("workspaces").select("*").order("created_at"),
+    db.from("daily_reports").select("*").order("implement_date", { ascending: false }),
+    db.from("knowledge").select("*").order("updated_at", { ascending: false }),
+    db.from("construction_licenses").select("*"),
+    db.from("employee_certifications").select("*"),
+    db.from("file_folders").select("*").order("name"),
+    db.from("prime_profile").select("*").eq("id", "default"),
   ]);
+
+  const primeProfile = (primeProfileRows?.[0]?.profile as PrimeCompanyProfile | undefined);
 
   return {
     users:        (users ?? []).map((r) => toUser(r as Record<string, unknown>)),
@@ -373,6 +495,13 @@ export async function fetchAllState(): Promise<Partial<AppState>> {
     progressMaps: (progressMaps ?? []).map((r) => toProgressMap(r as Record<string, unknown>)),
     customers: (customers ?? []).map((r) => toCustomer(r as Record<string, unknown>)),
     deals: (deals ?? []).map((r) => toDeal(r as Record<string, unknown>)),
+    workspaces: (workspaces ?? []).map((r) => toWorkspace(r as Record<string, unknown>)),
+    dailyReports: (dailyReports ?? []).map((r) => toDailyReport(r as Record<string, unknown>)),
+    knowledge: (knowledge ?? []).map((r) => toKnowledge(r as Record<string, unknown>)),
+    constructionLicenses: (constructionLicenses ?? []).map((r) => toConstructionLicense(r as Record<string, unknown>)),
+    employeeCertifications: (employeeCertifications ?? []).map((r) => toEmployeeCertification(r as Record<string, unknown>)),
+    fileFolders: (fileFolders ?? []).map((r) => toFileFolder(r as Record<string, unknown>)),
+    ...(primeProfile ? { primeProfile } : {}),
   };
 }
 
@@ -649,6 +778,94 @@ export async function deleteDeal(id: string) {
   await db.from("deals").delete().eq("id", id);
 }
 
+// --- WorkSpace（工事スペース） ---
+export async function upsertWorkspace(w: WorkSpace) {
+  const db = assertSupabase();
+  await db.from("workspaces").upsert(workspaceRow(w));
+}
+export async function deleteWorkspace(id: string) {
+  const db = assertSupabase();
+  await db.from("workspaces").delete().eq("id", id);
+}
+
+// --- DailyReport（工事日報） ---
+export async function upsertDailyReport(d: DailyReport) {
+  const db = assertSupabase();
+  await db.from("daily_reports").upsert(dailyReportRow(d));
+}
+export async function deleteDailyReport(id: string) {
+  const db = assertSupabase();
+  await db.from("daily_reports").delete().eq("id", id);
+}
+
+// --- KnowledgeArticle（ナレッジ） ---
+export async function upsertKnowledge(k: KnowledgeArticle) {
+  const db = assertSupabase();
+  await db.from("knowledge").upsert(knowledgeRow(k));
+}
+export async function deleteKnowledge(id: string) {
+  const db = assertSupabase();
+  await db.from("knowledge").delete().eq("id", id);
+}
+
+// --- ConstructionLicense（建設業許可） ---
+export async function upsertConstructionLicense(l: ConstructionLicense) {
+  const db = assertSupabase();
+  await db.from("construction_licenses").upsert(constructionLicenseRow(l));
+}
+export async function deleteConstructionLicense(id: string) {
+  const db = assertSupabase();
+  await db.from("construction_licenses").delete().eq("id", id);
+}
+
+// --- EmployeeCertification（資格・技能講習） ---
+export async function upsertEmployeeCertification(c: EmployeeCertification) {
+  const db = assertSupabase();
+  await db.from("employee_certifications").upsert(employeeCertificationRow(c));
+}
+export async function deleteEmployeeCertification(id: string) {
+  const db = assertSupabase();
+  await db.from("employee_certifications").delete().eq("id", id);
+}
+
+// --- FileFolder（ファイル公開設定） ---
+export async function upsertFileFolder(f: FileFolder) {
+  const db = assertSupabase();
+  await db.from("file_folders").upsert(fileFolderRow(f));
+}
+export async function deleteFileFolder(id: string) {
+  const db = assertSupabase();
+  await db.from("file_folders").delete().eq("id", id);
+}
+
+// --- PrimeCompanyProfile（自社プロフィール：シングルトン） ---
+export async function upsertPrimeProfile(p: PrimeCompanyProfile) {
+  const db = assertSupabase();
+  await db.from("prime_profile").upsert({ id: "default", profile: p });
+}
+
+// --- Address（アドレス帳） ---
+export async function upsertAddress(a: AddressEntry) {
+  const db = assertSupabase();
+  await db.from("addresses").upsert({
+    id: a.id, name: a.name, dept: a.dept, role: a.role, email: a.email, ext: a.ext, mobile: a.mobile ?? null,
+  });
+}
+export async function deleteAddress(id: string) {
+  const db = assertSupabase();
+  await db.from("addresses").delete().eq("id", id);
+}
+
+// --- Facility（設備） ---
+export async function upsertFacility(f: Facility) {
+  const db = assertSupabase();
+  await db.from("facilities").upsert({ id: f.id, name: f.name, capacity: f.capacity, equipment: f.equipment });
+}
+export async function deleteFacility(id: string) {
+  const db = assertSupabase();
+  await db.from("facilities").delete().eq("id", id);
+}
+
 // --- AuditLog ---
 export async function insertAuditLog(log: AuditLog) {
   const db = assertSupabase();
@@ -722,5 +939,13 @@ export async function seedIfEmpty(state: AppState) {
     db.from("progress_maps").insert(state.progressMaps.map((m) => ({ id: m.id, title: m.title, nodes: m.nodes }))),
     db.from("customers").insert(state.customers.map((c) => ({ id: c.id, name: c.name, kind: c.kind, contact: c.contact ?? null, phone: c.phone ?? null, email: c.email ?? null, notes: c.notes ?? null }))),
     db.from("deals").insert(state.deals.map(dealRow)),
+    db.from("workspaces").insert(state.workspaces.map(workspaceRow)),
+    db.from("daily_reports").insert(state.dailyReports.map(dailyReportRow)),
+    db.from("knowledge").insert(state.knowledge.map(knowledgeRow)),
+    db.from("construction_licenses").insert(state.constructionLicenses.map(constructionLicenseRow)),
+    db.from("employee_certifications").insert(state.employeeCertifications.map(employeeCertificationRow)),
+    db.from("file_folders").insert(state.fileFolders.map(fileFolderRow)),
+    db.from("addresses").insert(state.addresses.map((a) => ({ id: a.id, name: a.name, dept: a.dept, role: a.role, email: a.email, ext: a.ext, mobile: a.mobile ?? null }))),
+    db.from("prime_profile").insert({ id: "default", profile: state.primeProfile }),
   ]);
 }

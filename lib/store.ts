@@ -72,6 +72,14 @@ const seedState: AppState = {
   files: [
     { id: "f1", name: "営業資料_要件定義.pdf", folder: "営業", owner: "u1", date: TODAY, size: "2.4MB", version: 3 },
     { id: "f2", name: "採用サイト_原稿.docx", folder: "採用サイト", owner: "u2", date: "2026-06-17", size: "890KB", version: 8 },
+    { id: "f3", name: "給与テーブル_2026.xlsx", folder: "人事・給与", owner: "u3", date: "2026-06-15", size: "120KB", version: 2 },
+    { id: "f4", name: "契約書ドラフト_田辺邸.docx", folder: "契約・法務", owner: "u5", date: "2026-06-18", size: "340KB", version: 1 },
+  ],
+  fileFolders: [
+    { id: "ff1", name: "営業", scope: "all" },
+    { id: "ff2", name: "採用サイト", scope: "all" },
+    { id: "ff3", name: "人事・給与", scope: "restricted", allowDepts: ["管理部"], allowRoles: [] },
+    { id: "ff4", name: "契約・法務", scope: "restricted", allowDepts: ["法務部", "管理部"], allowRoles: ["部門管理者"] },
   ],
   facilities: [
     { id: "fac1", name: "会議室A", capacity: 8, equipment: ["プロジェクター", "ホワイトボード"] },
