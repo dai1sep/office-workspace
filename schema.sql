@@ -52,7 +52,6 @@ CREATE TABLE IF NOT EXISTS schedules (
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS workspace_id TEXT;
 -- 書き込み系のファイル添付（dataURLをJSONBで保持）
 ALTER TABLE schedules ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]';
-ALTER TABLE bulletins ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]';
 
 -- 掲示板
 CREATE TABLE IF NOT EXISTS bulletins (
@@ -79,10 +78,13 @@ CREATE TABLE IF NOT EXISTS bulletins (
   finish_time     TEXT,
   related_files   JSONB NOT NULL DEFAULT '[]',
   subscribers     JSONB NOT NULL DEFAULT '[]',
+  attachments     JSONB NOT NULL DEFAULT '[]',
   draft           BOOLEAN NOT NULL DEFAULT false,
   survey          JSONB,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+-- 既存環境向け（後から追加された列）
+ALTER TABLE bulletins ADD COLUMN IF NOT EXISTS attachments JSONB NOT NULL DEFAULT '[]';
 
 -- ワークフロー申請
 CREATE TABLE IF NOT EXISTS workflows (
