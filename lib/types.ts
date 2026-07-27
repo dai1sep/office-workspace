@@ -219,6 +219,17 @@ export interface FileEntry {
   version: number;
 }
 
+// ファイル公開設定。フォルダ単位で閲覧範囲を定義し、中のファイルは継承する。
+// 既定は全社公開（scope="all"）。制限時は「部署」または「ロール」のいずれかに一致すれば閲覧可。
+// 管理者は常に全閲覧、ファイルの登録者(owner)は常に自分のファイルを閲覧できる（締め出し防止）。
+export interface FileFolder {
+  id: string;
+  name: string; // フォルダ名（FileEntry.folder と一致）
+  scope: "all" | "restricted";
+  allowDepts?: string[]; // 制限時に閲覧できる部署（User.dept）
+  allowRoles?: string[]; // 制限時に閲覧できるロール（例: "部門管理者"）。"管理者"は常に閲覧可
+}
+
 export interface Facility {
   id: string;
   name: string;
@@ -649,6 +660,7 @@ export interface AppState {
   messages: Message[];
   addresses: AddressEntry[];
   files: FileEntry[];
+  fileFolders: FileFolder[];
   facilities: Facility[];
   reservations: FacilityReservation[];
   timecards: Timecard[];

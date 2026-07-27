@@ -1,7 +1,40 @@
-import { AppState, WorkflowRequest, WorkflowRouteStep, Schedule, WorkSpace } from "./types";
+import { AppState, WorkflowRequest, WorkflowRouteStep, Schedule, WorkSpace, FileFolder, FileEntry, User } from "./types";
 
 export function userName(state: AppState, id: string): string {
   return state.users.find((u) => u.id === id)?.name ?? "未設定";
+}
+
+// ── ファイル公開設定（フォルダ単位・部署/ロール軸） ──────────────
+// フォルダが指定ユーザーに見えるか。未登録フォルダ・全社公開は常に可視。
+// 制限フォルダは「管理者」または「許可された部署」または「許可されたロール」に一致すれば可視。
+export function folderVisibleTo(folder: FileFolder | undefined, user: User | undefined): boolean {
+  if (!user) return false;
+  if (user.role === "管理者") return true; // 管理者は常に全閲覧
+  if (!folder || folder.scope !== "restricted") return true; // 未登録 or 全社公開
+  if ((folder.allowDepts ?? []).includes(user.dept)) return true;
+  if ((folder.allowRoles ?? []).includes(user.role)) return true;
+  return false;
+}
+
+// ファイルが指定ユーザーに見えるか。登録者(owner)は常に自分のファイルを閲覧できる。
+export function fileVisibleTo(file: FileEntry, folders: FileFolder[], user: User | undefined): boolean {
+  if (!user) return false;
+  if (user.role === "管理者") return true;
+  if (file.owner === user.id) return true;
+  return folderVisibleTo(folders.find((f) => f.name === file.folder), user);
+}
+
+// state に存在する全フォルダ名（登録済みフォルダ ∪ ファイルが参照するフォルダ）を重複なく返す。
+export function allFolderNames(state: AppState): string[] {
+  const names = new Set<string>();
+  state.fileFolders.forEach((f) => names.add(f.name));
+  state.files.forEach((f) => names.add(f.folder));
+  return Array.from(names);
+}
+
+// フォルダ名に対応する設定エンティティを取得（なければ全社公開の既定を返す）。
+export function folderByName(folders: FileFolder[], name: string): FileFolder {
+  return folders.find((f) => f.name === name) ?? { id: `virtual-${name}`, name, scope: "all" };
 }
 
 // スケジュールが指定日に発生するか（単日/複数日/期間/繰り返しに対応）。Schedule.tsx の occursOn と共通の判定

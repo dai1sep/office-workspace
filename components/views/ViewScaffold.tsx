@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/Modal";
+import FileAccessSettings from "./FileAccess";
 import { useApp } from "@/lib/context";
-import { statusColor, uid, userName } from "@/lib/utils";
+import { statusColor, uid, userName, allFolderNames, folderByName, fileVisibleTo, folderVisibleTo } from "@/lib/utils";
 
 function Badge({ label }: { label: string }) {
   return <span className={`status ${statusColor(label)}`}>{label}</span>;
@@ -270,8 +271,43 @@ export function AddressView() {
 }
 
 export function FilesView() {
-  const { state } = useApp();
-  return <Layout title="ファイル管理" lead="共有ファイル、版、フォルダを管理します。" actions={<button className="ghost-button">ファイル登録</button>}><section className="panel"><div className="panel-title">共有ファイル</div><StaggerList>{state.files.map((f) => <Row key={f.id}><div style={{ flex: 1 }}><strong>{f.name}</strong><br /><span className="muted-text">{f.folder} / {userName(state, f.owner)} / v{f.version}</span></div><span className="muted-text">{f.size}</span></Row>)}</StaggerList></section></Layout>;
+  const { state, currentUser } = useApp();
+  const me = state.users.find((u) => u.id === currentUser);
+  // 自分に見えるフォルダのみ（管理者は全部、制限フォルダは部署/ロール一致、登録者は自分のファイルがある限り表示）
+  const folders = useMemo(() => {
+    return allFolderNames(state).filter((name) => {
+      const folder = folderByName(state.fileFolders, name);
+      if (folderVisibleTo(folder, me)) return true;
+      // フォルダ自体は見えなくても、自分が登録したファイルがあれば表示する
+      return state.files.some((f) => f.folder === name && fileVisibleTo(f, state.fileFolders, me));
+    });
+  }, [state, me]);
+  return (
+    <Layout title="ファイル管理" lead="共有ファイル、版、フォルダ、権限を管理します。権限設定は「組織・権限管理」から。" actions={<button className="ghost-button">ファイル登録</button>}>
+      {folders.length === 0 && <Empty text="閲覧できるファイルがありません。" />}
+      {folders.map((name) => {
+        const folder = folderByName(state.fileFolders, name);
+        const restricted = folder.scope === "restricted";
+        const files = state.files.filter((f) => f.folder === name && fileVisibleTo(f, state.fileFolders, me));
+        if (files.length === 0) return null;
+        return (
+          <section className="panel" key={name}>
+            <div className="panel-title" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span>{restricted ? "🔒" : "📂"} {name}</span>
+              {restricted && <span className="status blue" style={{ fontSize: 11 }}>{describeScope(folder)}</span>}
+              <span className="muted-text" style={{ fontSize: 12, marginLeft: "auto" }}>{files.length} ファイル</span>
+            </div>
+            <StaggerList>{files.map((f) => <Row key={f.id}><div style={{ flex: 1 }}><strong>{f.name}</strong><br /><span className="muted-text">{userName(state, f.owner)} / {f.date} / v{f.version}</span></div><span className="muted-text">{f.size}</span></Row>)}</StaggerList>
+          </section>
+        );
+      })}
+    </Layout>
+  );
+}
+
+function describeScope(folder: { allowDepts?: string[]; allowRoles?: string[] }): string {
+  const parts = [...(folder.allowDepts ?? []), ...(folder.allowRoles ?? [])];
+  return parts.length ? `閲覧可: ${parts.join("・")}` : "管理者のみ";
 }
 
 export function FacilitiesView() {
@@ -296,7 +332,12 @@ export function TimecardView() {
 
 export function AdminView() {
   const { state } = useApp();
-  return <Layout title="組織・権限管理" lead="部署、役職、ロール、閲覧制御を確認します。" actions={<button className="ghost-button">ユーザー追加</button>}><section className="panel"><div className="panel-title">ユーザーと権限</div><StaggerList>{state.users.map((u) => <Row key={u.id}><span className="avatar">{u.name[0]}</span><div style={{ flex: 1 }}><strong>{u.name}</strong><br /><span className="muted-text">{u.dept} / {u.email}</span></div><Badge label={u.role} /></Row>)}</StaggerList></section></Layout>;
+  return (
+    <Layout title="組織・権限管理" lead="部署、役職、ロール、ファイルの閲覧制御を設定します。" actions={<button className="ghost-button">ユーザー追加</button>}>
+      <section className="panel"><div className="panel-title">ユーザーと権限</div><StaggerList>{state.users.map((u) => <Row key={u.id}><span className="avatar">{u.name[0]}</span><div style={{ flex: 1 }}><strong>{u.name}</strong><br /><span className="muted-text">{u.dept} / {u.email}</span></div><Badge label={u.role} /></Row>)}</StaggerList></section>
+      <FileAccessSettings />
+    </Layout>
+  );
 }
 
 export function SpacesView() {
