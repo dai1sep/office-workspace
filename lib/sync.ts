@@ -26,6 +26,15 @@ import {
   upsertProgressMap, deleteProgressMap,
   upsertCustomer, deleteCustomer,
   upsertDeal, deleteDeal,
+  upsertWorkspace, deleteWorkspace,
+  upsertDailyReport, deleteDailyReport,
+  upsertKnowledge, deleteKnowledge,
+  upsertConstructionLicense, deleteConstructionLicense,
+  upsertEmployeeCertification, deleteEmployeeCertification,
+  upsertFileFolder, deleteFileFolder,
+  upsertAddress, deleteAddress,
+  upsertFacility, deleteFacility,
+  upsertPrimeProfile,
 } from "./db";
 
 function ids(arr: { id: string }[]) {
@@ -205,4 +214,81 @@ export function syncToSupabase(prev: AppState, next: AppState) {
     if (!old || JSON.stringify(old) !== JSON.stringify(d)) upsertDeal(d).catch(console.error);
   });
   prevDlIds.forEach((id) => { if (!nextDlIds.has(id)) deleteDeal(id).catch(console.error); });
+
+  // --- WorkSpace（工事スペース） ---
+  const prevWsIds = ids(prev.workspaces ?? []);
+  const nextWsIds = ids(next.workspaces ?? []);
+  (next.workspaces ?? []).forEach((w) => {
+    const old = (prev.workspaces ?? []).find((x) => x.id === w.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(w)) upsertWorkspace(w).catch(console.error);
+  });
+  prevWsIds.forEach((id) => { if (!nextWsIds.has(id)) deleteWorkspace(id).catch(console.error); });
+
+  // --- DailyReport（工事日報） ---
+  const prevDrIds = ids(prev.dailyReports ?? []);
+  const nextDrIds = ids(next.dailyReports ?? []);
+  (next.dailyReports ?? []).forEach((d) => {
+    const old = (prev.dailyReports ?? []).find((x) => x.id === d.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(d)) upsertDailyReport(d).catch(console.error);
+  });
+  prevDrIds.forEach((id) => { if (!nextDrIds.has(id)) deleteDailyReport(id).catch(console.error); });
+
+  // --- KnowledgeArticle（ナレッジ） ---
+  const prevKnIds = ids(prev.knowledge ?? []);
+  const nextKnIds = ids(next.knowledge ?? []);
+  (next.knowledge ?? []).forEach((k) => {
+    const old = (prev.knowledge ?? []).find((x) => x.id === k.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(k)) upsertKnowledge(k).catch(console.error);
+  });
+  prevKnIds.forEach((id) => { if (!nextKnIds.has(id)) deleteKnowledge(id).catch(console.error); });
+
+  // --- ConstructionLicense（建設業許可） ---
+  const prevClIds = ids(prev.constructionLicenses ?? []);
+  const nextClIds = ids(next.constructionLicenses ?? []);
+  (next.constructionLicenses ?? []).forEach((l) => {
+    const old = (prev.constructionLicenses ?? []).find((x) => x.id === l.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(l)) upsertConstructionLicense(l).catch(console.error);
+  });
+  prevClIds.forEach((id) => { if (!nextClIds.has(id)) deleteConstructionLicense(id).catch(console.error); });
+
+  // --- EmployeeCertification（資格・技能講習） ---
+  const prevEcIds = ids(prev.employeeCertifications ?? []);
+  const nextEcIds = ids(next.employeeCertifications ?? []);
+  (next.employeeCertifications ?? []).forEach((c) => {
+    const old = (prev.employeeCertifications ?? []).find((x) => x.id === c.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(c)) upsertEmployeeCertification(c).catch(console.error);
+  });
+  prevEcIds.forEach((id) => { if (!nextEcIds.has(id)) deleteEmployeeCertification(id).catch(console.error); });
+
+  // --- FileFolder（ファイル公開設定） ---
+  const prevFfIds = ids(prev.fileFolders ?? []);
+  const nextFfIds = ids(next.fileFolders ?? []);
+  (next.fileFolders ?? []).forEach((f) => {
+    const old = (prev.fileFolders ?? []).find((x) => x.id === f.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(f)) upsertFileFolder(f).catch(console.error);
+  });
+  prevFfIds.forEach((id) => { if (!nextFfIds.has(id)) deleteFileFolder(id).catch(console.error); });
+
+  // --- Address（アドレス帳） ---
+  const prevAdIds = ids(prev.addresses ?? []);
+  const nextAdIds = ids(next.addresses ?? []);
+  (next.addresses ?? []).forEach((a) => {
+    const old = (prev.addresses ?? []).find((x) => x.id === a.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(a)) upsertAddress(a).catch(console.error);
+  });
+  prevAdIds.forEach((id) => { if (!nextAdIds.has(id)) deleteAddress(id).catch(console.error); });
+
+  // --- Facility（設備） ---
+  const prevFcIds = ids(prev.facilities ?? []);
+  const nextFcIds = ids(next.facilities ?? []);
+  (next.facilities ?? []).forEach((f) => {
+    const old = (prev.facilities ?? []).find((x) => x.id === f.id);
+    if (!old || JSON.stringify(old) !== JSON.stringify(f)) upsertFacility(f).catch(console.error);
+  });
+  prevFcIds.forEach((id) => { if (!nextFcIds.has(id)) deleteFacility(id).catch(console.error); });
+
+  // --- PrimeCompanyProfile（自社プロフィール：シングルトン） ---
+  if (JSON.stringify(prev.primeProfile) !== JSON.stringify(next.primeProfile)) {
+    upsertPrimeProfile(next.primeProfile).catch(console.error);
+  }
 }

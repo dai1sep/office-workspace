@@ -457,3 +457,121 @@ CREATE POLICY "allow_all_dev" ON process_tasks        FOR ALL USING (true) WITH 
 CREATE POLICY "allow_all_dev" ON progress_maps        FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON customers            FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON deals                FOR ALL USING (true) WITH CHECK (true);
+
+-- ── 本格導入で追加のテーブル ───────────────────────────────────
+-- ファイル公開設定（フォルダ単位・部署/ロール軸）
+CREATE TABLE IF NOT EXISTS file_folders (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  scope       TEXT NOT NULL DEFAULT 'all',
+  allow_depts JSONB NOT NULL DEFAULT '[]',
+  allow_roles JSONB NOT NULL DEFAULT '[]',
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 工事スペース（現場）
+CREATE TABLE IF NOT EXISTS workspaces (
+  id          TEXT PRIMARY KEY,
+  name        TEXT NOT NULL,
+  color       TEXT NOT NULL DEFAULT '#3f6b5b',
+  member_ids  JSONB NOT NULL DEFAULT '[]',
+  description TEXT,
+  location    TEXT,
+  created_at  TEXT NOT NULL DEFAULT ''
+);
+
+-- 工事日報
+CREATE TABLE IF NOT EXISTS daily_reports (
+  id                  TEXT PRIMARY KEY,
+  workspace_id        TEXT NOT NULL,
+  meeting_date        TEXT NOT NULL DEFAULT '',
+  implement_date      TEXT NOT NULL DEFAULT '',
+  weather             TEXT NOT NULL DEFAULT '',
+  planned_work        TEXT NOT NULL DEFAULT '',
+  actual_work         TEXT NOT NULL DEFAULT '',
+  safety_items        JSONB NOT NULL DEFAULT '[]',
+  attendees           JSONB NOT NULL DEFAULT '[]',
+  subcontractors      JSONB NOT NULL DEFAULT '[]',
+  equipment           JSONB NOT NULL DEFAULT '[]',
+  materials           JSONB NOT NULL DEFAULT '[]',
+  progress_rate       INTEGER NOT NULL DEFAULT 0,
+  planned_days        INTEGER NOT NULL DEFAULT 0,
+  remaining_days      INTEGER NOT NULL DEFAULT 0,
+  notes               TEXT NOT NULL DEFAULT '',
+  approvals           JSONB NOT NULL DEFAULT '{}',
+  approver_names      JSONB NOT NULL DEFAULT '{}',
+  signed_workers      JSONB NOT NULL DEFAULT '[]',
+  progress_items      JSONB NOT NULL DEFAULT '[]',
+  disaster_free_hours INTEGER,
+  created_by          TEXT NOT NULL DEFAULT '',
+  created_at          TEXT NOT NULL DEFAULT '',
+  status              TEXT NOT NULL DEFAULT 'draft'
+);
+
+-- ナレッジ記事
+CREATE TABLE IF NOT EXISTS knowledge (
+  id         TEXT PRIMARY KEY,
+  title      TEXT NOT NULL DEFAULT '',
+  body       TEXT NOT NULL DEFAULT '',
+  author     TEXT NOT NULL DEFAULT '',
+  category   TEXT NOT NULL DEFAULT '',
+  tags       JSONB NOT NULL DEFAULT '[]',
+  date       TEXT NOT NULL DEFAULT '',
+  updated_at TEXT NOT NULL DEFAULT '',
+  pinned     BOOLEAN NOT NULL DEFAULT false
+);
+
+-- 建設業許可
+CREATE TABLE IF NOT EXISTS construction_licenses (
+  id       TEXT PRIMARY KEY,
+  type     TEXT NOT NULL DEFAULT '',
+  num      TEXT NOT NULL DEFAULT '',
+  kubun    TEXT NOT NULL DEFAULT '',
+  acquired TEXT NOT NULL DEFAULT '',
+  expires  TEXT NOT NULL DEFAULT '',
+  days     INTEGER NOT NULL DEFAULT 0,
+  person   TEXT NOT NULL DEFAULT '',
+  dept     TEXT NOT NULL DEFAULT '',
+  wf       TEXT NOT NULL DEFAULT '未起票',
+  files    INTEGER NOT NULL DEFAULT 0,
+  status   TEXT NOT NULL DEFAULT 'ok',
+  notes    TEXT NOT NULL DEFAULT ''
+);
+
+-- 資格・技能講習
+CREATE TABLE IF NOT EXISTS employee_certifications (
+  id             TEXT PRIMARY KEY,
+  name           TEXT NOT NULL DEFAULT '',
+  category       TEXT NOT NULL DEFAULT '',
+  category_label TEXT NOT NULL DEFAULT '',
+  person         TEXT NOT NULL DEFAULT '',
+  dept           TEXT NOT NULL DEFAULT '',
+  acquired       TEXT NOT NULL DEFAULT '',
+  expires        TEXT,
+  days           INTEGER,
+  renewal        TEXT NOT NULL DEFAULT '',
+  status         TEXT NOT NULL DEFAULT 'ok',
+  notify         BOOLEAN NOT NULL DEFAULT false
+);
+
+-- 自社（元請）プロフィール：シングルトン（id='default' の1行に JSONB で保持）
+CREATE TABLE IF NOT EXISTS prime_profile (
+  id      TEXT PRIMARY KEY DEFAULT 'default',
+  profile JSONB NOT NULL DEFAULT '{}'
+);
+
+ALTER TABLE file_folders            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE workspaces              ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_reports           ENABLE ROW LEVEL SECURITY;
+ALTER TABLE knowledge               ENABLE ROW LEVEL SECURITY;
+ALTER TABLE construction_licenses   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE employee_certifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE prime_profile           ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "allow_all_dev" ON file_folders            FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON workspaces              FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON daily_reports           FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON knowledge               FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON construction_licenses   FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON employee_certifications FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "allow_all_dev" ON prime_profile           FOR ALL USING (true) WITH CHECK (true);
