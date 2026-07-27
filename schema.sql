@@ -575,3 +575,21 @@ CREATE POLICY "allow_all_dev" ON knowledge               FOR ALL USING (true) WI
 CREATE POLICY "allow_all_dev" ON construction_licenses   FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON employee_certifications FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "allow_all_dev" ON prime_profile           FOR ALL USING (true) WITH CHECK (true);
+
+-- ══════════════════════════════════════════════════════════════
+-- 本番RLS：ログイン済み(authenticated)のみ全操作を許可、匿名(anon)は不可。
+-- public スキーマの全テーブルに一括適用（新テーブルにも下記を1行足すだけ）。
+-- これにより「URLを知っているだけ」の外部アクセスを遮断する。
+-- ※ Supabase Auth を使わずローカル(localStorage)運用する場合はこのブロックを実行しないこと。
+-- ══════════════════════════════════════════════════════════════
+DO $$
+DECLARE t text;
+BEGIN
+  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
+    EXECUTE format('DROP POLICY IF EXISTS allow_all_dev ON public.%I', t);
+    EXECUTE format('DROP POLICY IF EXISTS auth_all ON public.%I', t);
+    EXECUTE format('CREATE POLICY auth_all ON public.%I FOR ALL TO authenticated USING (true) WITH CHECK (true)', t);
+  END LOOP;
+END $$;
