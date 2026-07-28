@@ -26,6 +26,13 @@ export const supabase: SupabaseClient | null = makeClient();
 
 export const isSupabaseReady = (): boolean => supabase !== null;
 
+// ログイン中ユーザーのアクセストークン（サーバーAPI呼び出しのBearer認証用）。未ログイン/ローカル時は null。
+export async function getAccessToken(): Promise<string | null> {
+  if (!supabase) return null;
+  const { data } = await supabase.auth.getSession();
+  return data.session?.access_token ?? null;
+}
+
 // 管理者が従業員のログインアカウントを作成する。
 // セッションを保持しない一時クライアントで signUp するため、操作中の管理者のログインは維持される。
 // ※ Supabaseの Auth 設定で「Confirm email」を OFF にしておくと、作成後すぐログインできる。
