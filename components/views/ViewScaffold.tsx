@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/Modal";
 import FileAccessSettings from "./FileAccess";
+import { getAccessToken } from "@/lib/supabase";
 import { useApp } from "@/lib/context";
 import { statusColor, uid, userName, allFolderNames, folderByName, fileVisibleTo, folderVisibleTo } from "@/lib/utils";
 
@@ -150,10 +151,15 @@ export function BulletinView() {
 }
 
 export function MailView() {
-  const { state, updateState } = useApp();
+  const { state, updateState, authMode } = useApp();
   const [open, setOpen] = useState(false);
   const [folder, setFolder] = useState("受信");
   const [form, setForm] = useState({ subject: "", from: "", body: "", label: "" });
+  // 新規メール送信（実SMTP経由）
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [compose, setCompose] = useState({ to: "", cc: "", subject: "", body: "" });
+  const [sending, setSending] = useState(false);
+  const [sendMsg, setSendMsg] = useState<string | null>(null);
   const folders = ["受信", "送信", "下書き", "保留"];
   const mails = state.mails.filter((m) => folder === "受信" ? true : m.folder === folder);
 
@@ -164,8 +170,35 @@ export function MailView() {
     setForm({ subject: "", from: "", body: "", label: "" });
   }
 
+  async function sendMail() {
+    setSendMsg(null);
+    if (!compose.to.trim() || !compose.subject.trim()) { setSendMsg("宛先と件名は必須です。"); return; }
+    if (authMode !== "supabase") { setSendMsg("メール送信は本番（メールログイン）環境でのみ利用できます。"); return; }
+    const token = await getAccessToken();
+    if (!token) { setSendMsg("ログイン状態を確認できませんでした。再ログインしてください。"); return; }
+    setSending(true);
+    try {
+      const res = await fetch("/api/mail/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(compose),
+      });
+      const data = await res.json();
+      if (!res.ok) { setSendMsg(data.error || "送信に失敗しました。"); setSending(false); return; }
+      // 送信済みとしてメール一覧に記録
+      updateState((prev) => ({ ...prev, mails: [{ id: uid("mail"), subject: compose.subject, from: data.from || "自分", to: compose.to.split(/[,;\s]+/).filter(Boolean), date: new Date().toISOString().slice(0, 10), body: compose.body, folder: "送信", read: true, labels: [] }, ...prev.mails] }));
+      setSending(false);
+      setComposeOpen(false);
+      setCompose({ to: "", cc: "", subject: "", body: "" });
+      setFolder("送信");
+    } catch (e) {
+      setSending(false);
+      setSendMsg("送信中にエラーが発生しました: " + (e instanceof Error ? e.message : String(e)));
+    }
+  }
+
   return (
-    <Layout title="メール管理" lead="受信、送信、下書き、保留を案件ラベルとあわせて管理します。" actions={<button className="ghost-button" onClick={() => setOpen(true)}>メール登録</button>}>
+    <Layout title="メール管理" lead="受信、送信、下書き、保留を案件ラベルとあわせて管理します。" actions={<><button className="ghost-button" onClick={() => { setSendMsg(null); setComposeOpen(true); }} style={{ background: "var(--green)", color: "#fff" }}>新規メール</button><button className="ghost-button" onClick={() => setOpen(true)}>メール登録</button></>}>
       <div style={{ display: "grid", gridTemplateColumns: "180px minmax(0, 1fr)", gap: 14 }}>
         <section className="panel"><div className="panel-title">フォルダ</div>{folders.map((f) => <button key={f} className="ghost-button" onClick={() => setFolder(f)} style={{ width: "100%", justifyContent: "space-between", marginBottom: 6, background: folder === f ? "var(--soft)" : "var(--panel)" }}>{f}<span className="muted-text">{f === "受信" ? state.mails.length : state.mails.filter((m) => m.folder === f).length}</span></button>)}</section>
         <section className="panel"><div className="panel-title">メール一覧</div><StaggerList>{mails.map((m) => <Row key={m.id}><div style={{ flex: 1 }}><strong>{m.subject}</strong><br /><span className="muted-text">{m.from} / {m.date} / {m.labels.join(", ") || "ラベルなし"}</span></div><Badge label={m.read ? "確認済" : "未読"} /></Row>)}</StaggerList></section>
@@ -177,6 +210,21 @@ export function MailView() {
           <Field label="ラベル"><input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} style={{ width: "100%" }} /></Field>
           <Field label="本文"><textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4} style={{ width: "100%" }} /></Field>
           <div style={{ display: "flex", gap: 8 }}><button className="ghost-button" onClick={addMail}>登録</button><button className="ghost-button" onClick={() => setOpen(false)}>キャンセル</button></div>
+        </div>
+      </SimpleModal>
+
+      <SimpleModal open={composeOpen} onClose={() => setComposeOpen(false)} title="新規メール（送信）">
+        <div style={{ display: "grid", gap: 12 }}>
+          <Field label="宛先（To）"><input value={compose.to} onChange={(e) => setCompose({ ...compose, to: e.target.value })} placeholder="taro@example.co.jp（カンマ区切りで複数可）" style={{ width: "100%" }} /></Field>
+          <Field label="CC（任意）"><input value={compose.cc} onChange={(e) => setCompose({ ...compose, cc: e.target.value })} style={{ width: "100%" }} /></Field>
+          <Field label="件名"><input value={compose.subject} onChange={(e) => setCompose({ ...compose, subject: e.target.value })} style={{ width: "100%" }} /></Field>
+          <Field label="本文"><textarea value={compose.body} onChange={(e) => setCompose({ ...compose, body: e.target.value })} rows={7} style={{ width: "100%" }} /></Field>
+          {sendMsg && <div style={{ color: "var(--red, #c0392b)", fontSize: 12.5 }}>{sendMsg}</div>}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button className="ghost-button" onClick={sendMail} disabled={sending} style={{ background: "var(--green)", color: "#fff" }}>{sending ? "送信中…" : "送信する"}</button>
+            <button className="ghost-button" onClick={() => setComposeOpen(false)}>キャンセル</button>
+            <span className="muted-text" style={{ fontSize: 11.5, marginLeft: "auto" }}>御社SMTP経由で実送信されます</span>
+          </div>
         </div>
       </SimpleModal>
     </Layout>
