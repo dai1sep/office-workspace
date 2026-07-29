@@ -512,17 +512,33 @@ CREATE TABLE IF NOT EXISTS prime_profile (
   profile JSONB NOT NULL DEFAULT '{}'
 );
 
+-- メール(SMTP)設定：サーバー(service_role)だけが読み書きする秘匿テーブル。
+-- パスワードを含むため、ブラウザ(anon/authenticated)からは一切アクセスさせない。
+-- RLSは有効化するがポリシーを作らない＝クライアントは全拒否。service_role のみRLSを迂回して操作可。
+CREATE TABLE IF NOT EXISTS smtp_config (
+  id         TEXT PRIMARY KEY DEFAULT 'default',
+  host       TEXT NOT NULL DEFAULT '',
+  port       INTEGER NOT NULL DEFAULT 587,
+  secure     BOOLEAN NOT NULL DEFAULT false,
+  username   TEXT NOT NULL DEFAULT '',
+  password   TEXT NOT NULL DEFAULT '',
+  from_addr  TEXT NOT NULL DEFAULT '',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- ══════════════════════════════════════════════════════════════
 -- 本番RLS：ログイン済み(authenticated)のみ全操作を許可、匿名(anon)は不可。
 -- public スキーマの全テーブルに一括適用（新テーブルにも自動で下記が効く）。
 -- これにより「URLを知っているだけ」の外部アクセスを遮断する。
 -- 何度でも安全に再実行できる（既存ポリシーを作り直す）。
+-- ※ smtp_config は秘匿テーブルのため対象から除外（クライアント全拒否＝service_roleのみ）。
 -- ※ Supabase Auth を使わずローカル(localStorage)運用する場合はこのブロックを実行しないこと。
 -- ══════════════════════════════════════════════════════════════
+ALTER TABLE smtp_config ENABLE ROW LEVEL SECURITY; -- ポリシー無し＝クライアント全拒否
 DO $$
 DECLARE t text;
 BEGIN
-  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public'
+  FOR t IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'smtp_config'
   LOOP
     EXECUTE format('ALTER TABLE public.%I ENABLE ROW LEVEL SECURITY', t);
     EXECUTE format('DROP POLICY IF EXISTS allow_all_dev ON public.%I', t);
