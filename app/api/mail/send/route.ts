@@ -1,9 +1,32 @@
 import { NextResponse } from "next/server";
 import nodemailer from "nodemailer";
 import { createClient } from "@supabase/supabase-js";
+import { serviceClient } from "@/lib/serverSupabase";
 
 // nodemailer は Node ランタイムが必要（Edge不可）
 export const runtime = "nodejs";
+
+// SMTP設定を取得：まずDB(smtp_config)、無ければ環境変数。
+async function loadSmtp() {
+  const svc = serviceClient();
+  if (svc) {
+    const { data } = await svc.from("smtp_config").select("*").eq("id", "default").maybeSingle();
+    if (data?.host && data?.username && data?.password) {
+      return {
+        host: data.host as string, port: Number(data.port ?? 587),
+        secure: Boolean(data.secure), user: data.username as string, pass: data.password as string,
+        from: (data.from_addr as string) || (data.username as string),
+      };
+    }
+  }
+  const host = process.env.SMTP_HOST;
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (!host || !user || !pass) return null;
+  const port = Number(process.env.SMTP_PORT ?? "587");
+  const secure = (process.env.SMTP_SECURE ?? "").toLowerCase() === "true" || port === 465;
+  return { host, port, secure, user, pass, from: process.env.SMTP_FROM || user };
+}
 
 // アプリ→御社SMTP でメールを実送信する。ログイン済み(Supabase Auth)ユーザーのみ許可。
 // SMTP認証情報はサーバー側の環境変数のみで扱い、ブラウザには一切出さない。
@@ -21,19 +44,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "認証に失敗しました。再ログインしてください。" }, { status: 401 });
   }
 
-  // ── SMTP設定（サーバー環境変数） ──
-  const host = process.env.SMTP_HOST;
-  const port = Number(process.env.SMTP_PORT ?? "587");
-  const secure = (process.env.SMTP_SECURE ?? "").toLowerCase() === "true" || port === 465;
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-  const from = process.env.SMTP_FROM || user;
-  if (!host || !user || !pass) {
+  // ── SMTP設定（アプリ内設定 or 環境変数） ──
+  const smtp = await loadSmtp();
+  if (!smtp) {
     return NextResponse.json(
-      { error: "サーバーにSMTP設定がありません。Vercelの環境変数 SMTP_HOST / SMTP_PORT / SMTP_USER / SMTP_PASS / SMTP_FROM を設定してください。" },
+      { error: "SMTP設定がありません。管理者が「メール設定」画面で設定してください（またはVercel環境変数 SMTP_* を設定）。" },
       { status: 500 },
     );
   }
+  const { host, port, secure, user, pass, from } = smtp;
 
   // ── 入力 ──
   let payload: { to?: string; cc?: string; subject?: string; body?: string; text?: string };

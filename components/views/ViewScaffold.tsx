@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal from "@/components/Modal";
 import FileAccessSettings from "./FileAccess";
+import MailSettings from "./MailSettings";
 import { getAccessToken } from "@/lib/supabase";
 import { useApp } from "@/lib/context";
 import { statusColor, uid, userName, allFolderNames, folderByName, fileVisibleTo, folderVisibleTo } from "@/lib/utils";
@@ -384,6 +385,7 @@ export function AdminView() {
     <Layout title="組織・権限管理" lead="部署、役職、ロール、ファイルの閲覧制御を設定します。" actions={<button className="ghost-button">ユーザー追加</button>}>
       <section className="panel"><div className="panel-title">ユーザーと権限</div><StaggerList>{state.users.map((u) => <Row key={u.id}><span className="avatar">{u.name[0]}</span><div style={{ flex: 1 }}><strong>{u.name}</strong><br /><span className="muted-text">{u.dept} / {u.email}</span></div><Badge label={u.role} /></Row>)}</StaggerList></section>
       <FileAccessSettings />
+      <MailSettings />
     </Layout>
   );
 }
