@@ -1,6 +1,28 @@
 # HANDOFF
 
-## Current Status
+## 現在の状況（2026-11-06 更新・最新はここ）
+
+- **場所**：ローカル `C:\Users\kasae\AI\office-workspace` ／ GitHub `dai1sep/office-workspace`（main）／ 共有コピー `\\192.168.1.6\share\個人\笠江\AI関連\software\office-workspace`
+- **本番**：https://office-workspace.vercel.app（Vercel Hobby＋Supabase無料枠＋Supabase Auth メール認証。テスト運用中）
+  - Supabase未設定時は自動でローカル(localStorage `office-workspace-state-v3`)モードにフォールバック
+  - RLSは authenticated 限定（schema.sql 末尾のDOブロックで一括適用）。最初の管理者は seed の佐藤（`sato@example.local`）で作成
+- **最終コミット**：`8e13574` PR#32「アプリ内SMTP設定画面」（2026-07-29）。作業ツリーはクリーン
+- **直近の流れ**：#28 ファイル公開設定＋Supabase同期網羅 → #29 Supabase Auth＋RLS本番化 → #30 従業員登録の簡略化 → #31 メール送信フェーズ1（`/api/mail/send`＝nodemailerで自社SMTP送信） → #32 SMTP設定をアプリ画面から（`smtp_config` テーブル、service_roleのみアクセス可）
+- **サーバー機能**：`app/api/mail/send/route.ts`（SMTP設定は DB の smtp_config 優先 → env `SMTP_HOST/PORT/SECURE/USER/PASS/FROM` フォールバック）、`app/api/settings/smtp/route.ts`（管理者のみ、パスワードは返さない）、`lib/serverSupabase.ts`（service_role クライアント＋トークン→社員ロール検証）
+- **未確認の1回きり準備（#32用）**：Vercel に `SUPABASE_SERVICE_ROLE_KEY` を登録（`NEXT_PUBLIC_` を付けない）＋ Supabase で `schema.sql` を再実行。済んでいるかは未確認
+- **ハマりどころ**：
+  - Vercel env `NEXT_PUBLIC_SUPABASE_URL` は土台URLのみ（`https://xxxx.supabase.co`）。`/rest/v1/` 等を付けるとログイン不可
+  - Vercel無料機は型チェックで落ちるため `next.config.ts` で `typescript.ignoreBuildErrors:true`。型はローカル `tsc --noEmit` で担保。`eslint` キーは Next16 で使用不可
+  - schema.sql は ALTER TABLE を必ず該当 CREATE TABLE の後に置く
+- **次の候補（全Web完結構想）**：①メール受信（IMAP取得→Supabase保存→受信箱。Vercel Hobby のcronは1日1回のため、外部の無料cronか手動「受信」ボタンかを決める）②返信・スレッド・添付・既読 ③業務イベント（承認依頼・掲示板・予定）のメール通知
+- **切り離し済み**：安全書類は独立ツール `software/安全書類作成ツール` へ移行（#27）
+- **検証方法**：nodeはPATH外（`C:\Program Files\nodejs`）。PATHに足して `npx tsc --noEmit` / `npx next build` / `npx eslint`。拡張ブラウザから localhost に届かないため、ライブQAは本番URLで行う
+
+---
+
+## 以下は旧記録（2026-07-08 時点・Codex時代の履歴。パスやコマンドは古い）
+
+## Current Status (old)
 
 - Web app target: `C:\Users\kasae\Documents\Codex\office-workspace`
 - Production server verified on `http://127.0.0.1:3001`
