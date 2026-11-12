@@ -18,6 +18,20 @@
 - **切り離し済み**：安全書類は独立ツール `software/安全書類作成ツール` へ移行（#27）
 - **検証方法**：nodeはPATH外（`C:\Program Files\nodejs`）。PATHに足して `npx tsc --noEmit` / `npx next build` / `npx eslint`。拡張ブラウザから localhost に届かないため、ライブQAは本番URLで行う
 
+## ⚠ 本番ログイン不可（2026-11-06 判明）
+
+- **症状**：https://office-workspace.vercel.app のログイン画面は出るが、ログインできない
+- **原因（2026-11-12 ダッシュボードで確定）**：接続先 Supabase `mfhvjeafktkbbyflekok.supabase.co` が DNS で「存在しないドメイン」になっていた。Vercel 側は正常。Supabase 無料プランの非アクティブ自動一時停止で、プロジェクト "office-workspace" が **Paused**。データ・バックアップは保持されている
+- **復旧手順**：supabase.com/dashboard → **Resume project**（無料）。**2027-09-11 まで**再開できる。それ以降は再開不可で、データのダウンロードのみ。「Upgrade to Pro」は有料なので押さない
+- **再発防止**：無料プランは約1週間使わないと止まる。止まったら Resume する
+
+## Supabase なしで画面を見る（ローカルのデモモード）
+
+- `.env.local` が無ければ自動でローカルモード（localStorage）。パスワード不要で、デモ社員（佐藤=管理者 等）を選んでログインする
+- 起動：`"C:\Program Files\nodejs\node.exe" C:\Users\kasae\AI\office-workspace\node_modules\next\dist\bin\next dev C:\Users\kasae\AI\office-workspace --port 3123` → http://localhost:3123
+  - Claude デスクトップアプリでは `C:\Users\kasae\.claude\.claude\launch.json` の `office-workspace-local` で起動できる（アプリ内のブラウザで表示）
+- データはそのPCのブラウザにのみ保存。本番データは見えない。メール送信・SMTP設定などサーバー/Supabase 依存の機能は使えない
+
 ---
 
 ## 以下は旧記録（2026-07-08 時点・Codex時代の履歴。パスやコマンドは古い）
